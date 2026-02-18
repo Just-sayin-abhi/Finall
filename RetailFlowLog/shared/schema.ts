@@ -6,6 +6,7 @@ import {
   timestamp,
   varchar,
   integer,
+  serial,
   text,
   real,
 } from "drizzle-orm/pg-core";
