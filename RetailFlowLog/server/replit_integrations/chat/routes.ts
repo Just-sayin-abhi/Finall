@@ -63,7 +63,7 @@ export function registerChatRoutes(app: Express): void {
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
     try {
       const conversationId = parseInt(req.params.id);
-      const { content } = req.body;
+      const { content, context } = req.body;
 
       // Save user message
       await chatStorage.createMessage(conversationId, "user", content);
@@ -88,13 +88,13 @@ export function registerChatRoutes(app: Express): void {
             role: "system",
             content: `You are "Your Ayurvedic Dietician", a personalized AI assistant.
 Your context:
-- Dosha: ${req.body.context?.dosha || "Unknown"}
-- Health Goal: ${req.body.context?.goal || "General Wellness"}
-- Recommended Foods: ${JSON.stringify(req.body.context?.foods?.recommended || [])}
-- Good Foods: ${JSON.stringify(req.body.context?.foods?.good || [])}
-- Neutral Foods: ${JSON.stringify(req.body.context?.foods?.neutral || [])}
-- Caution Foods: ${JSON.stringify(req.body.context?.foods?.caution || [])}
-- Avoid Foods: ${JSON.stringify(req.body.context?.foods?.avoid || [])}
+- Dosha: ${context?.dosha || "Unknown"}
+- Health Goal: ${context?.goal || "General Wellness"}
+- Recommended Foods: ${JSON.stringify(context?.foods?.recommended || [])}
+- Good Foods: ${JSON.stringify(context?.foods?.good || [])}
+- Neutral Foods: ${JSON.stringify(context?.foods?.neutral || [])}
+- Caution Foods: ${JSON.stringify(context?.foods?.caution || [])}
+- Avoid Foods: ${JSON.stringify(context?.foods?.avoid || [])}
 
 Strict Guidelines:
 1. Only recommend foods from the "Recommended", "Good", or "Neutral" lists.

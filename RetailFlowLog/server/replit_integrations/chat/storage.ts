@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { conversations, messages } from "@shared/schema";
+import { users, conversations, messages } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IChatStorage {
@@ -22,7 +22,26 @@ export const chatStorage: IChatStorage = {
   },
 
   async createConversation(title: string) {
-    const [conversation] = await db.insert(conversations).values({ title }).returning();
+    // Get a default user for local/demo if none exists
+    const [user] = await db.select().from(users).limit(1);
+    let userId = user?.id;
+    
+    if (!userId) {
+      // Create a demo user if none exists to satisfy foreign key
+      const [demoUser] = await db.insert(users).values({
+        id: "demo_user",
+        email: "demo@example.com",
+        firstName: "Demo",
+        lastName: "User"
+      }).onConflictDoNothing().returning();
+      userId = demoUser?.id || "demo_user";
+    }
+    
+    const [conversation] = await db.insert(conversations).values({ 
+      title,
+      userId,
+      createdAt: new Date()
+    }).returning();
     return conversation;
   },
 
@@ -36,7 +55,12 @@ export const chatStorage: IChatStorage = {
   },
 
   async createMessage(conversationId: number, role: string, content: string) {
-    const [message] = await db.insert(messages).values({ conversationId, role, content }).returning();
+    const [message] = await db.insert(messages).values({ 
+      conversationId, 
+      role, 
+      content,
+      createdAt: new Date()
+    }).returning();
     return message;
   },
 };

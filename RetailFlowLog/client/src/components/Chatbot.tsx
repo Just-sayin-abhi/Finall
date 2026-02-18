@@ -42,8 +42,33 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     { label: "Foods to strictly avoid?", icon: AlertTriangle },
   ];
 
+  const [conversationId, setConversationId] = useState<number | null>(null);
+
   const handleSend = async (text: string = input) => {
     if (!text.trim() || isLoading) return;
+
+    let currentConvId = conversationId;
+    if (!currentConvId) {
+      try {
+        const convResp = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: `Ayurvedic Dietician Chat - ${dosha}` }),
+        });
+        if (convResp.ok) {
+          const convData = await convResp.json();
+          currentConvId = convData.id;
+          setConversationId(currentConvId);
+        }
+      } catch (e) {
+        console.error("Failed to create conversation", e);
+      }
+    }
+
+    if (!currentConvId) {
+      setMessages(prev => [...prev, { role: "assistant", content: "I'm having trouble starting a conversation. Please refresh and try again." }]);
+      return;
+    }
 
     const userMessage: Message = { role: "user", content: text };
     setMessages(prev => [...prev, userMessage]);
@@ -51,7 +76,7 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/conversations/1/messages", { // Assuming a default conversation ID for demo
+      const response = await fetch(`/api/conversations/${currentConvId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
