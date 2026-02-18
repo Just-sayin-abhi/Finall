@@ -83,7 +83,30 @@ export function registerChatRoutes(app: Express): void {
       // Stream response from OpenAI
       const stream = await openai.chat.completions.create({
         model: "gpt-5.1",
-        messages: chatMessages,
+        messages: [
+          {
+            role: "system",
+            content: `You are "Your Ayurvedic Dietician", a personalized AI assistant.
+Your context:
+- Dosha: ${req.body.context?.dosha || "Unknown"}
+- Health Goal: ${req.body.context?.goal || "General Wellness"}
+- Recommended Foods: ${JSON.stringify(req.body.context?.foods?.recommended || [])}
+- Good Foods: ${JSON.stringify(req.body.context?.foods?.good || [])}
+- Neutral Foods: ${JSON.stringify(req.body.context?.foods?.neutral || [])}
+- Caution Foods: ${JSON.stringify(req.body.context?.foods?.caution || [])}
+- Avoid Foods: ${JSON.stringify(req.body.context?.foods?.avoid || [])}
+
+Strict Guidelines:
+1. Only recommend foods from the "Recommended", "Good", or "Neutral" lists.
+2. NEVER suggest foods from the "Avoid" list.
+3. Explain WHY specific foods are good or bad based on the user's dosha.
+4. Reference the user's specific food list in your responses.
+5. Provide practical Indian meal suggestions (Breakfast, Lunch, Dinner).
+6. Offer spice recommendations and cooking methods suitable for the dosha.
+7. Suggest substitutions using only the allowed foods.`
+          },
+          ...chatMessages
+        ],
         stream: true,
         max_completion_tokens: 8192,
       });
