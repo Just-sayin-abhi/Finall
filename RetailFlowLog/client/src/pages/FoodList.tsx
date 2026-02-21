@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,12 +19,20 @@ import {
   XCircle,
   Sparkles,
   ArrowLeft,
-  Star
+  Star,
+  Info,
+  ChevronRight
 } from "lucide-react";
 import Chatbot from "@/components/Chatbot";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 const tierInfo = {
@@ -80,22 +89,97 @@ const categories = [
 
 function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
   const info = tierInfo[tier];
+  const [showDetail, setShowDetail] = useState(false);
   
   return (
-    <div 
-      className={`p-4 rounded-lg border-2 ${info.color} hover-elevate transition-all duration-200`}
-      data-testid={`food-card-${food.name.toLowerCase().replace(/\s+/g, '-')}`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h4 className="font-medium">{food.name}</h4>
-          <p className="text-xs text-muted-foreground capitalize">{food.category}</p>
+    <>
+      <motion.div 
+        layout
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        whileHover={{ scale: 1.02, y: -2 }}
+        className={`p-4 rounded-xl border-2 ${info.color} cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 group relative overflow-hidden`}
+        onClick={() => setShowDetail(true)}
+        data-testid={`food-card-${food.name.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full -mr-8 -mt-8 group-hover:bg-white/10 transition-colors" />
+        <div className="flex items-start justify-between gap-2 relative">
+          <div>
+            <h4 className="font-bold text-lg leading-tight">{food.name}</h4>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">{food.category}</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Badge variant="outline" className="text-[10px] bg-background/40 border-current/20 font-bold">
+              {food.category}
+            </Badge>
+            <Info className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
+          </div>
         </div>
-        <Badge variant="secondary" className="text-xs">
-          {food.category}
-        </Badge>
-      </div>
-    </div>
+      </motion.div>
+
+      <Dialog open={showDetail} onOpenChange={setShowDetail}>
+        <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-xl border-border/40">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${info.color} shadow-inner`}>
+                <info.icon className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="font-serif text-2xl">{food.name}</DialogTitle>
+                <DialogDescription className="capitalize font-medium text-primary">
+                  {food.category} • {info.label}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="space-y-3">
+              <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Dosha Balance</h5>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(food.dosha_effects).map(([dosha, effect]) => (
+                  <div key={dosha} className="p-2 rounded-xl border border-border/40 bg-muted/20 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-tighter opacity-60">{dosha}</span>
+                    <Badge variant="outline" className={`text-[10px] border-none px-1.5 h-5 flex items-center justify-center ${
+                      effect === 'favourable' ? 'bg-emerald-500/10 text-emerald-500' :
+                      effect === 'neutral' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-rose-500/10 text-rose-500'
+                    }`}>
+                      {effect}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Benefit Analysis</h5>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(food.health_goal_effects)
+                  .filter(([_, effect]) => effect === 'favourable')
+                  .map(([goal, _]) => (
+                    <Badge key={goal} variant="secondary" className="bg-primary/5 text-primary border-primary/10 px-2 py-1 rounded-lg">
+                      Excellent for {healthGoals[goal as HealthGoalKey]}
+                    </Badge>
+                  ))}
+                {Object.entries(food.health_goal_effects)
+                  .filter(([_, effect]) => effect === 'favourable').length === 0 && (
+                    <p className="text-sm text-muted-foreground italic">Generally balanced for most systems.</p>
+                  )}
+              </div>
+            </div>
+            
+            <div className={`p-4 rounded-2xl ${info.color} border-none`}>
+              <p className="text-sm font-medium leading-relaxed opacity-90">
+                <span className="font-bold">Dietician's Note:</span> {info.description}. In Ayurveda, {food.name} is considered {food.dosha_effects.vata === 'favourable' ? 'warming' : 'cooling'} and {food.category === 'grains' ? 'grounding' : 'light'}.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -121,30 +205,41 @@ function TierSection({ tier, foods, searchQuery, selectedCategory }: {
   }
   
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${info.color}`}>
-          <Icon className="w-5 h-5" />
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-12"
+    >
+      <div className="flex items-center gap-4 mb-6">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${info.color} shadow-sm ring-1 ring-current/20`}>
+          <Icon className="w-6 h-6" />
         </div>
-        <div>
-          <h3 className="font-serif text-lg font-semibold">{info.label}</h3>
-          <p className="text-sm text-muted-foreground">{info.description}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-serif text-xl font-bold">{info.label}</h3>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wider">
+              {filteredFoods.length}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground font-medium">{info.description}</p>
         </div>
-        <Badge className={`ml-auto ${info.badgeColor}`}>
-          {filteredFoods.length} foods
-        </Badge>
+        <div className="h-px flex-1 bg-gradient-to-r from-border/60 to-transparent ml-4 hidden md:block" />
       </div>
       
       {filteredFoods.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">No foods in this category</p>
+        <div className="p-8 rounded-2xl border border-dashed border-border/60 bg-muted/10 text-center">
+          <p className="text-sm text-muted-foreground italic">No foods match your current filters in this tier.</p>
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filteredFoods.map((food) => (
-            <FoodCard key={food.name} food={food} tier={tier} />
-          ))}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredFoods.map((food) => (
+              <FoodCard key={food.name} food={food} tier={tier} />
+            ))}
+          </AnimatePresence>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
