@@ -1,16 +1,18 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import { healthGoals, type HealthGoalKey, type TieredFoods, type Food } from "@shared/schema";
-import { 
+import {
   Leaf,
   Search,
   Filter,
@@ -21,12 +23,26 @@ import {
   ArrowLeft,
   Star,
   Info,
-  ChevronRight
+  ChevronRight,
+  Droplets,
+  Utensils,
+  Apple,
+  Coffee,
+  Moon,
+  Sun,
+  RefreshCw,
+  AlertCircle,
+  Flame,
 } from "lucide-react";
 import Chatbot from "@/components/Chatbot";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -34,7 +50,52 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
+interface MealMacros {
+  protein: string;
+  carbs: string;
+  fat: string;
+  calories: string;
+}
+
+interface MealEntry {
+  dish_name: string;
+  ingredients: string[];
+  portion: string;
+  macros: MealMacros;
+  why: string;
+  substitutions: string[];
+}
+
+interface AIMealPlan {
+  profile_summary: string;
+  hydration: string;
+  why_this_works: string;
+  clinician_note?: string;
+  meals: {
+    breakfast: MealEntry;
+    morning_snack: MealEntry;
+    lunch: MealEntry;
+    evening_snack: MealEntry;
+    dinner: MealEntry;
+  };
+}
+
+interface Preferences {
+  dietaryRestrictions: string;
+  allergies: string;
+  healthConditions: string;
+  cuisinePreference: string;
+  budget: string;
+  cookingTime: string;
+}
+
+// ---------------------------------------------------------------------------
+// Tier metadata
+// ---------------------------------------------------------------------------
 const tierInfo = {
   tier_1: {
     label: "Highly Recommended",
@@ -73,7 +134,7 @@ const tierInfo = {
   },
 };
 
-const categories = [
+const foodCategories = [
   { value: "all", label: "All Categories" },
   { value: "vegetables", label: "Vegetables" },
   { value: "grains", label: "Grains" },
@@ -87,13 +148,28 @@ const categories = [
   { value: "beverages", label: "Beverages" },
 ];
 
+// Meal keys with display info
+const mealMeta: Record<
+  keyof AIMealPlan["meals"],
+  { label: string; icon: React.ComponentType<{ className?: string }>; color: string }
+> = {
+  breakfast: { label: "Breakfast", icon: Sun, color: "text-amber-500 bg-amber-50 dark:bg-amber-950/30" },
+  morning_snack: { label: "Morning Snack", icon: Apple, color: "text-green-500 bg-green-50 dark:bg-green-950/30" },
+  lunch: { label: "Lunch", icon: Utensils, color: "text-blue-500 bg-blue-50 dark:bg-blue-950/30" },
+  evening_snack: { label: "Evening Snack", icon: Coffee, color: "text-orange-500 bg-orange-50 dark:bg-orange-950/30" },
+  dinner: { label: "Dinner", icon: Moon, color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" },
+};
+
+// ---------------------------------------------------------------------------
+// FoodCard component
+// ---------------------------------------------------------------------------
 function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
   const info = tierInfo[tier];
   const [showDetail, setShowDetail] = useState(false);
-  
+
   return (
     <>
-      <motion.div 
+      <motion.div
         layout
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -101,14 +177,15 @@ function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
         whileHover={{ scale: 1.02, y: -2 }}
         className={`p-4 rounded-xl border-2 ${info.color} cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 group relative overflow-hidden`}
         onClick={() => setShowDetail(true)}
-        data-testid={`food-card-${food.name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full -mr-8 -mt-8 group-hover:bg-white/10 transition-colors" />
         <div className="flex items-start justify-between gap-2 relative">
           <div>
             <h4 className="font-bold text-lg leading-tight">{food.name}</h4>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">{food.category}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
+                {food.category}
+              </span>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -140,13 +217,21 @@ function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
               <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Dosha Balance</h5>
               <div className="grid grid-cols-3 gap-2">
                 {Object.entries(food.dosha_effects).map(([dosha, effect]) => (
-                  <div key={dosha} className="p-2 rounded-xl border border-border/40 bg-muted/20 flex flex-col items-center gap-1">
+                  <div
+                    key={dosha}
+                    className="p-2 rounded-xl border border-border/40 bg-muted/20 flex flex-col items-center gap-1"
+                  >
                     <span className="text-[10px] font-bold uppercase tracking-tighter opacity-60">{dosha}</span>
-                    <Badge variant="outline" className={`text-[10px] border-none px-1.5 h-5 flex items-center justify-center ${
-                      effect === 'favourable' ? 'bg-emerald-500/10 text-emerald-500' :
-                      effect === 'neutral' ? 'bg-amber-500/10 text-amber-500' :
-                      'bg-rose-500/10 text-rose-500'
-                    }`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] border-none px-1.5 h-5 flex items-center justify-center ${
+                        effect === "favourable"
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : effect === "neutral"
+                          ? "bg-amber-500/10 text-amber-500"
+                          : "bg-rose-500/10 text-rose-500"
+                      }`}
+                    >
                       {effect}
                     </Badge>
                   </div>
@@ -158,22 +243,27 @@ function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
               <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Benefit Analysis</h5>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(food.health_goal_effects)
-                  .filter(([_, effect]) => effect === 'favourable')
-                  .map(([goal, _]) => (
-                    <Badge key={goal} variant="secondary" className="bg-primary/5 text-primary border-primary/10 px-2 py-1 rounded-lg">
+                  .filter(([_, effect]) => effect === "favourable")
+                  .map(([goal]) => (
+                    <Badge
+                      key={goal}
+                      variant="secondary"
+                      className="bg-primary/5 text-primary border-primary/10 px-2 py-1 rounded-lg"
+                    >
                       Excellent for {healthGoals[goal as HealthGoalKey]}
                     </Badge>
                   ))}
-                {Object.entries(food.health_goal_effects)
-                  .filter(([_, effect]) => effect === 'favourable').length === 0 && (
-                    <p className="text-sm text-muted-foreground italic">Generally balanced for most systems.</p>
-                  )}
+                {Object.entries(food.health_goal_effects).filter(([_, e]) => e === "favourable").length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">Generally balanced for most systems.</p>
+                )}
               </div>
             </div>
-            
+
             <div className={`p-4 rounded-2xl ${info.color} border-none`}>
               <p className="text-sm font-medium leading-relaxed opacity-90">
-                <span className="font-bold">Dietician's Note:</span> {info.description}. In Ayurveda, {food.name} is considered {food.dosha_effects.vata === 'favourable' ? 'warming' : 'cooling'} and {food.category === 'grains' ? 'grounding' : 'light'}.
+                <span className="font-bold">Dietician's Note:</span> {info.description}. In Ayurveda, {food.name} is
+                considered {food.dosha_effects.vata === "favourable" ? "warming" : "cooling"} and{" "}
+                {food.category === "grains" ? "grounding" : "light"}.
               </p>
             </div>
           </div>
@@ -183,7 +273,15 @@ function FoodCard({ food, tier }: { food: Food; tier: keyof typeof tierInfo }) {
   );
 }
 
-function TierSection({ tier, foods, searchQuery, selectedCategory }: {
+// ---------------------------------------------------------------------------
+// TierSection component
+// ---------------------------------------------------------------------------
+function TierSection({
+  tier,
+  foods,
+  searchQuery,
+  selectedCategory,
+}: {
   tier: keyof typeof tierInfo;
   foods: Food[];
   searchQuery: string;
@@ -191,25 +289,21 @@ function TierSection({ tier, foods, searchQuery, selectedCategory }: {
 }) {
   const info = tierInfo[tier];
   const Icon = info.icon;
-  
-  const filteredFoods = useMemo(() => {
-    return foods.filter(food => {
-      const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "all" || food.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [foods, searchQuery, selectedCategory]);
-  
-  if (filteredFoods.length === 0 && foods.length > 0) {
-    return null; // Hide tier if all foods are filtered out
-  }
-  
+
+  const filteredFoods = useMemo(
+    () =>
+      foods.filter((food) => {
+        const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === "all" || food.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      }),
+    [foods, searchQuery, selectedCategory]
+  );
+
+  if (filteredFoods.length === 0 && foods.length > 0) return null;
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-12"
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
       <div className="flex items-center gap-4 mb-6">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${info.color} shadow-sm ring-1 ring-current/20`}>
           <Icon className="w-6 h-6" />
@@ -225,7 +319,7 @@ function TierSection({ tier, foods, searchQuery, selectedCategory }: {
         </div>
         <div className="h-px flex-1 bg-gradient-to-r from-border/60 to-transparent ml-4 hidden md:block" />
       </div>
-      
+
       {filteredFoods.length === 0 ? (
         <div className="p-8 rounded-2xl border border-dashed border-border/60 bg-muted/10 text-center">
           <p className="text-sm text-muted-foreground italic">No foods match your current filters in this tier.</p>
@@ -243,69 +337,337 @@ function TierSection({ tier, foods, searchQuery, selectedCategory }: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// MealCard — renders a single AI-generated meal entry
+// ---------------------------------------------------------------------------
+function MealCard({ mealKey, meal }: { mealKey: keyof AIMealPlan["meals"]; meal: MealEntry }) {
+  const meta = mealMeta[mealKey];
+  const Icon = meta.icon;
+
+  return (
+    <Card className="bg-card/60 backdrop-blur-sm border-border/40 shadow-sm overflow-hidden">
+      {/* Meal header */}
+      <div className={`flex items-center gap-3 px-5 py-4 ${meta.color} border-b border-border/10`}>
+        <div className="w-8 h-8 rounded-xl bg-background/30 flex items-center justify-center shadow-sm flex-shrink-0">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{meta.label}</p>
+          <h5 className="font-bold text-base leading-tight truncate">{meal.dish_name}</h5>
+        </div>
+        <Badge variant="secondary" className="text-[10px] bg-background/30 border-none font-bold shrink-0">
+          {meal.macros.calories}
+        </Badge>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* Macros row */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Protein", value: meal.macros.protein, color: "text-blue-600 dark:text-blue-400" },
+            { label: "Carbs", value: meal.macros.carbs, color: "text-amber-600 dark:text-amber-400" },
+            { label: "Fat", value: meal.macros.fat, color: "text-rose-600 dark:text-rose-400" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="text-center p-2 rounded-xl bg-muted/30 border border-border/30">
+              <p className={`text-sm font-bold ${color}`}>{value}</p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Portion */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
+          <Utensils className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-medium">{meal.portion}</span>
+        </div>
+
+        {/* Ingredients */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Ingredients</p>
+          <div className="flex flex-wrap gap-1.5">
+            {meal.ingredients.map((ing) => (
+              <Badge key={ing} variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 font-medium">
+                {ing}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Why this works */}
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">
+            <Leaf className="w-3 h-3" /> Why This Works
+          </p>
+          <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">{meal.why}</p>
+        </div>
+
+        {/* Substitutions */}
+        {meal.substitutions && meal.substitutions.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" /> Substitutions
+            </p>
+            <ul className="space-y-1">
+              {meal.substitutions.map((sub, i) => (
+                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0 text-primary/50" />
+                  {sub}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PreferencesForm — collected before calling the AI
+// ---------------------------------------------------------------------------
+function PreferencesForm({
+  prefs,
+  setPrefs,
+  onGenerate,
+  onCancel,
+  loading,
+}: {
+  prefs: Preferences;
+  setPrefs: (p: Preferences) => void;
+  onGenerate: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const update = (key: keyof Preferences) => (value: string) =>
+    setPrefs({ ...prefs, [key]: value });
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Dietary Restrictions */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Dietary Preference
+          </Label>
+          <Select value={prefs.dietaryRestrictions} onValueChange={update("dietaryRestrictions")}>
+            <SelectTrigger className="rounded-xl border-border/60 bg-background/60">
+              <SelectValue placeholder="Select preference" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="No specific restrictions">No specific restrictions</SelectItem>
+              <SelectItem value="Vegetarian">Vegetarian</SelectItem>
+              <SelectItem value="Vegan">Vegan</SelectItem>
+              <SelectItem value="Jain vegetarian (no root vegetables)">Jain Vegetarian</SelectItem>
+              <SelectItem value="Sattvic diet (no onion/garlic)">Sattvic (no onion/garlic)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Cuisine preference */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Cuisine Preference
+          </Label>
+          <Select value={prefs.cuisinePreference} onValueChange={update("cuisinePreference")}>
+            <SelectTrigger className="rounded-xl border-border/60 bg-background/60">
+              <SelectValue placeholder="Select cuisine" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="Indian — any region">Indian — Any Region</SelectItem>
+              <SelectItem value="North Indian">North Indian</SelectItem>
+              <SelectItem value="South Indian">South Indian</SelectItem>
+              <SelectItem value="Gujarati">Gujarati</SelectItem>
+              <SelectItem value="Bengali">Bengali</SelectItem>
+              <SelectItem value="Pan-Asian">Pan-Asian</SelectItem>
+              <SelectItem value="Mediterranean">Mediterranean</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Budget */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Budget</Label>
+          <Select value={prefs.budget} onValueChange={update("budget")}>
+            <SelectTrigger className="rounded-xl border-border/60 bg-background/60">
+              <SelectValue placeholder="Select budget" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="Budget (affordable, simple)">Budget — affordable & simple</SelectItem>
+              <SelectItem value="Moderate">Moderate</SelectItem>
+              <SelectItem value="Premium (superfoods, organic)">Premium — superfoods & organic</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Cooking time */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Cooking Time Available
+          </Label>
+          <Select value={prefs.cookingTime} onValueChange={update("cookingTime")}>
+            <SelectTrigger className="rounded-xl border-border/60 bg-background/60">
+              <SelectValue placeholder="Select time" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="Under 15 minutes">Under 15 minutes</SelectItem>
+              <SelectItem value="Under 30 minutes">Under 30 minutes</SelectItem>
+              <SelectItem value="Up to 1 hour">Up to 1 hour</SelectItem>
+              <SelectItem value="No time limit">No time limit</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Allergies — free text */}
+      <div className="space-y-2">
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Allergies / Intolerances
+        </Label>
+        <Input
+          placeholder="e.g. peanuts, gluten, lactose — or leave blank"
+          value={prefs.allergies}
+          onChange={(e) => update("allergies")(e.target.value)}
+          className="rounded-xl border-border/60 bg-background/60"
+        />
+      </div>
+
+      {/* Health conditions — free text */}
+      <div className="space-y-2">
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Health Conditions / Medications
+        </Label>
+        <Input
+          placeholder="e.g. type 2 diabetes, hypertension, thyroid — or leave blank"
+          value={prefs.healthConditions}
+          onChange={(e) => update("healthConditions")(e.target.value)}
+          className="rounded-xl border-border/60 bg-background/60"
+        />
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          This helps the AI avoid contraindicated foods and add appropriate cautions.
+        </p>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button variant="ghost" onClick={onCancel} className="flex-1 rounded-xl" disabled={loading}>
+          Cancel
+        </Button>
+        <Button onClick={onGenerate} disabled={loading} className="flex-1 rounded-xl shadow-md shadow-primary/20 gap-2">
+          {loading ? (
+            <>
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                <Sparkles className="w-4 h-4" />
+              </motion.div>
+              Generating…
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              Generate My Plan
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main FoodList page
+// ---------------------------------------------------------------------------
 export default function FoodList() {
   const searchParams = useSearch();
   const params = new URLSearchParams(searchParams);
   const mode = params.get("mode") || "balanced";
   const goalParam = params.get("goal") as HealthGoalKey | null;
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
 
+  // Dialog states
+  const [showPrefsDialog, setShowPrefsDialog] = useState(false);
   const [showMealDialog, setShowMealDialog] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
-  const [mealPlan, setMealPlan] = useState<any | null>(null);
+  const [mealPlan, setMealPlan] = useState<AIMealPlan | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+
+  // Preferences form state
+  const [prefs, setPrefs] = useState<Preferences>({
+    dietaryRestrictions: "No specific restrictions",
+    allergies: "",
+    healthConditions: "",
+    cuisinePreference: "Indian — any region",
+    budget: "Moderate",
+    cookingTime: "Up to 1 hour",
+  });
+
   const { toast } = useToast();
-  
+
   const { data: tieredFoods, isLoading } = useQuery<TieredFoods>({
     queryKey: ["/api/foods/filtered", mode, goalParam],
     queryFn: async () => {
-      const url = mode === "goal" && goalParam
-        ? `/api/foods/filtered?mode=goal&goal=${goalParam}`
-        : "/api/foods/filtered?mode=balanced";
+      const url =
+        mode === "goal" && goalParam
+          ? `/api/foods/filtered?mode=goal&goal=${goalParam}`
+          : "/api/foods/filtered?mode=balanced";
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch foods");
       return response.json();
     },
   });
-  
+
   const goalLabel = goalParam ? healthGoals[goalParam] : null;
 
+  // Step 1: open preferences dialog
+  function handleOpenPrefs() {
+    setMissingFields([]);
+    setShowPrefsDialog(true);
+  }
+
+  // Step 2: send the API call with preferences
   async function generateMealPlan() {
-    if (!tieredFoods) return;
     setGeneratingPlan(true);
     try {
-      const resp = await fetch('/api/mealplan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const resp = await fetch("/api/mealplan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
           goal: goalParam,
-          searchQuery,
-          category: selectedCategory,
-          days: 7,
+          preferences: prefs,
         }),
       });
+
+      const data = await resp.json();
+
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ message: 'Failed' }));
-        toast({ title: 'Unable to generate meal plan', description: err.message || 'Try different filters' });
+        // Show missing fields if profile is incomplete
+        if (data.missingFields && data.missingFields.length > 0) {
+          setMissingFields(data.missingFields);
+        }
+        toast({
+          title: "Unable to generate meal plan",
+          description: data.message || "Please try again.",
+          variant: "destructive",
+        });
         setGeneratingPlan(false);
         return;
       }
-      const data = await resp.json();
-      setMealPlan(data);
+
+      setMealPlan(data as AIMealPlan);
+      setShowPrefsDialog(false);
       setShowMealDialog(true);
     } catch (e) {
       console.error(e);
-      toast({ title: 'Error', description: 'Failed to generate meal plan' });
+      toast({ title: "Error", description: "Failed to generate meal plan. Please try again.", variant: "destructive" });
     } finally {
       setGeneratingPlan(false);
     }
   }
-  
 
-
+  // ---------------------------------------------------------------------------
+  // Loading state
+  // ---------------------------------------------------------------------------
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -321,6 +683,9 @@ export default function FoodList() {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -334,7 +699,7 @@ export default function FoodList() {
               <span className="font-serif text-lg font-bold tracking-tight">Food Wisdom</span>
             </div>
             <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="gap-2 hover:bg-muted/60" data-testid="link-dashboard">
+              <Button variant="ghost" size="sm" className="gap-2 hover:bg-muted/60">
                 <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">Dashboard</span>
               </Button>
@@ -342,32 +707,24 @@ export default function FoodList() {
           </div>
         </div>
       </header>
-      
+
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Title Section */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="mb-8"
-        >
+        {/* Title */}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest mb-3">
             <Sparkles className="w-3 h-3" />
             Personalized Nutrition
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-foreground mb-2">
-            {mode === "goal" && goalLabel
-              ? `Nutrition for ${goalLabel}`
-              : "Ayurvedic Balanced Diet"
-            }
+            {mode === "goal" && goalLabel ? `Nutrition for ${goalLabel}` : "Ayurvedic Balanced Diet"}
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl leading-relaxed">
             {mode === "goal"
               ? "A specialized selection of foods optimized for your primary dosha and specific health objectives."
-              : "Foundational nutritional choices curated to maintain equilibrium across your unique Ayurvedic constitution."
-            }
+              : "Foundational nutritional choices curated to maintain equilibrium across your unique Ayurvedic constitution."}
           </p>
         </motion.div>
-        
+
         {/* Filters */}
         <Card className="mb-8 bg-card/40 backdrop-blur-md border-border/40 shadow-sm overflow-visible">
           <CardContent className="p-4">
@@ -379,18 +736,17 @@ export default function FoodList() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-background/50 border-border/60 focus:border-primary/50 transition-all rounded-xl"
-                  data-testid="input-search"
                 />
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-56 bg-background/50 border-border/60 rounded-xl" data-testid="select-category">
+                <SelectTrigger className="w-full sm:w-56 bg-background/50 border-border/60 rounded-xl">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Category" />
                   </div>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-border/40">
-                  {categories.map((cat) => (
+                  {foodCategories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value} className="rounded-lg m-1">
                       {cat.label}
                     </SelectItem>
@@ -400,76 +756,78 @@ export default function FoodList() {
             </div>
           </CardContent>
         </Card>
-        
-        {/* Tabs for tier navigation */}
+
+        {/* Tabs + Generate Button */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-10">
-          <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
             <TabsList className="bg-muted/40 p-1 rounded-2xl border border-border/40 h-auto flex flex-wrap flex-1">
-              <TabsTrigger value="all" className="rounded-xl px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-all">All Tiers</TabsTrigger>
-              <TabsTrigger value="tier_1" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-1/10 data-[state=active]:text-tier-1" data-testid="tab-tier-1">Highly Recommended</TabsTrigger>
-              <TabsTrigger value="tier_2" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-2/10 data-[state=active]:text-tier-2" data-testid="tab-tier-2">Good</TabsTrigger>
-              <TabsTrigger value="tier_3" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-3/10 data-[state=active]:text-tier-3" data-testid="tab-tier-3">Neutral</TabsTrigger>
+              <TabsTrigger value="all" className="rounded-xl px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                All Tiers
+              </TabsTrigger>
+              <TabsTrigger value="tier_1" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-1/10 data-[state=active]:text-tier-1">
+                Highly Recommended
+              </TabsTrigger>
+              <TabsTrigger value="tier_2" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-2/10 data-[state=active]:text-tier-2">
+                Good
+              </TabsTrigger>
+              <TabsTrigger value="tier_3" className="rounded-xl px-4 py-2 data-[state=active]:bg-tier-3/10 data-[state=active]:text-tier-3">
+                Neutral
+              </TabsTrigger>
             </TabsList>
-            
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    onClick={async () => { await generateMealPlan(); }} 
-                    disabled={generatingPlan} 
+                  <Button
+                    onClick={handleOpenPrefs}
                     className="rounded-2xl shadow-lg shadow-primary/20 gap-2 h-11 px-6 whitespace-nowrap hidden md:flex"
                     data-testid="btn-generate-mealplan"
                   >
-                    {generatingPlan ? (
-                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                        <Sparkles className="w-4 h-4" />
-                      </motion.div>
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    Generate 7-Day Plan
+                    <Sparkles className="w-4 h-4" />
+                    Generate Meal Plan
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-background/95 backdrop-blur-md border-border/40 max-w-xs p-3 rounded-xl">
-                  <p className="text-xs font-medium leading-relaxed">Let AI create a customized week-long menu using only your recommended foods.</p>
+                  <p className="text-xs font-medium leading-relaxed">
+                    Let your personal AI dietician craft a full-day Ayurvedic meal plan tailored to your dosha and health goals.
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          
+
           <TabsContent value="all" className="mt-0 outline-none">
             {tieredFoods && (
               <>
                 <TierSection tier="tier_1" foods={tieredFoods.tier_1} searchQuery={searchQuery} selectedCategory={selectedCategory} />
                 <TierSection tier="tier_2" foods={tieredFoods.tier_2} searchQuery={searchQuery} selectedCategory={selectedCategory} />
                 <TierSection tier="tier_3" foods={tieredFoods.tier_3} searchQuery={searchQuery} selectedCategory={selectedCategory} />
-                {tieredFoods.tier_4 && tieredFoods.tier_4.length > 0 && <TierSection tier="tier_4" foods={tieredFoods.tier_4} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
-                {tieredFoods.tier_5 && tieredFoods.tier_5.length > 0 && <TierSection tier="tier_5" foods={tieredFoods.tier_5} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
+                {tieredFoods.tier_4 && tieredFoods.tier_4.length > 0 && (
+                  <TierSection tier="tier_4" foods={tieredFoods.tier_4} searchQuery={searchQuery} selectedCategory={selectedCategory} />
+                )}
+                {tieredFoods.tier_5 && tieredFoods.tier_5.length > 0 && (
+                  <TierSection tier="tier_5" foods={tieredFoods.tier_5} searchQuery={searchQuery} selectedCategory={selectedCategory} />
+                )}
               </>
             )}
           </TabsContent>
-          
           <TabsContent value="tier_1" className="mt-0 outline-none">
             {tieredFoods && <TierSection tier="tier_1" foods={tieredFoods.tier_1} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
           </TabsContent>
-          
           <TabsContent value="tier_2" className="mt-0 outline-none">
             {tieredFoods && <TierSection tier="tier_2" foods={tieredFoods.tier_2} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
           </TabsContent>
-          
           <TabsContent value="tier_3" className="mt-0 outline-none">
             {tieredFoods && <TierSection tier="tier_3" foods={tieredFoods.tier_3} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
           </TabsContent>
-
           <TabsContent value="tier_4" className="mt-0 outline-none">
             {tieredFoods?.tier_4 && <TierSection tier="tier_4" foods={tieredFoods.tier_4} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
           </TabsContent>
-
           <TabsContent value="tier_5" className="mt-0 outline-none">
             {tieredFoods?.tier_5 && <TierSection tier="tier_5" foods={tieredFoods.tier_5} searchQuery={searchQuery} selectedCategory={selectedCategory} />}
           </TabsContent>
         </Tabs>
-        
+
         {/* Legend */}
         <Card className="mt-12 bg-card/30 backdrop-blur-md border-border/40 rounded-3xl overflow-hidden shadow-sm">
           <CardHeader className="bg-muted/10 p-6">
@@ -477,14 +835,19 @@ export default function FoodList() {
               <Info className="w-5 h-5 text-primary" />
               Nutritional Classification Legend
             </CardTitle>
-            <CardDescription className="text-base">Understanding how Ayurvedic principles apply to your food choices.</CardDescription>
+            <CardDescription className="text-base">
+              Understanding how Ayurvedic principles apply to your food choices.
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {Object.entries(tierInfo).map(([key, info]) => {
                 const Icon = info.icon;
                 return (
-                  <div key={key} className={`p-4 rounded-2xl ${info.color} border-none shadow-sm flex flex-col gap-3 transition-transform hover:scale-[1.02]`}>
+                  <div
+                    key={key}
+                    className={`p-4 rounded-2xl ${info.color} border-none shadow-sm flex flex-col gap-3 transition-transform hover:scale-[1.02]`}
+                  >
                     <div className="w-10 h-10 rounded-xl bg-background/40 flex items-center justify-center shadow-inner">
                       <Icon className="w-5 h-5" />
                     </div>
@@ -499,112 +862,170 @@ export default function FoodList() {
           </CardContent>
         </Card>
 
-        {/* Mobile FAB for meal plan */}
+        {/* Mobile FAB */}
         <div className="fixed bottom-6 right-6 md:hidden z-40">
-           <Button 
-            onClick={async () => { await generateMealPlan(); }} 
-            disabled={generatingPlan} 
-            className="rounded-full w-14 h-14 shadow-2xl shadow-primary/40 p-0"
-          >
-            {generatingPlan ? (
-               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <Sparkles className="w-6 h-6" />
-              </motion.div>
-            ) : (
-              <Sparkles className="w-6 h-6" />
-            )}
+          <Button onClick={handleOpenPrefs} className="rounded-full w-14 h-14 shadow-2xl shadow-primary/40 p-0">
+            <Sparkles className="w-6 h-6" />
           </Button>
         </div>
 
-        {/* AI Assistant */}
+        {/* AI Chatbot */}
         {tieredFoods && (
-          <Chatbot 
-            dosha={mode === "goal" ? "Your Custom" : "Balanced"} 
-            goal={goalLabel || "General Wellness"} 
-            foods={tieredFoods} 
+          <Chatbot
+            dosha={mode === "goal" ? "Your Custom" : "Balanced"}
+            goal={goalLabel || "General Wellness"}
+            foods={tieredFoods}
           />
         )}
 
-        {/* Meal plan dialog */}
-        <Dialog open={showMealDialog} onOpenChange={setShowMealDialog}>
-          <DialogContent className="sm:max-w-4xl bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden max-h-[90vh]">
+        {/* ------------------------------------------------------------------ */}
+        {/* Step 1 Dialog — Preferences form                                   */}
+        {/* ------------------------------------------------------------------ */}
+        <Dialog open={showPrefsDialog} onOpenChange={(open) => { if (!generatingPlan) setShowPrefsDialog(open); }}>
+          <DialogContent className="sm:max-w-lg bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden">
             <div className="p-6 border-b border-border/40 bg-muted/20">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
-                  <Sparkles className="w-6 h-6 text-primary" />
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
+                  <Flame className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <DialogTitle className="font-serif text-2xl">Your 7-Day Ayurvedic Journey</DialogTitle>
-                  <DialogDescription className="text-base">Customized meal architecture using only your optimal food sources.</DialogDescription>
+                  <DialogTitle className="font-serif text-xl">Personalise Your Meal Plan</DialogTitle>
+                  <DialogDescription className="text-sm">
+                    Tell your AI dietician about your preferences so every meal fits your life.
+                  </DialogDescription>
                 </div>
               </div>
+
+              {/* Missing fields warning */}
+              {missingFields.length > 0 && (
+                <div className="mt-4 flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-bold mb-0.5">Complete your profile first</p>
+                    <p>Missing: {missingFields.join(", ")}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] bg-background/40">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {mealPlan?.days?.map((d: any) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={d.day}
-                  >
-                    <Card className="bg-card/50 backdrop-blur-md border-border/40 shadow-sm overflow-hidden h-full">
-                      <div className="bg-primary/5 px-4 py-3 border-b border-border/20 flex items-center justify-between">
-                        <h4 className="font-bold text-lg text-primary flex items-center gap-2">
-                          Day {d.day}
-                          <Badge variant="outline" className="text-[10px] uppercase tracking-tighter">Harmonized</Badge>
-                        </h4>
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Planned by AI</div>
-                      </div>
-                      <div className="p-4 space-y-4">
-                        {Object.entries(d.meals).map(([mealKey, recipe]: any) => (
-                          <div key={mealKey} className="group">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">{mealKey}</span>
-                              <div className="h-px flex-1 bg-border/40" />
-                            </div>
-                            <div className="pl-2 border-l-2 border-primary/20 group-hover:border-primary/40 transition-colors">
-                              <h5 className="font-bold text-base mb-1">{recipe.title}</h5>
-                              <div className="flex flex-wrap gap-1 mb-3">
-                                {recipe.ingredients.slice(0, 4).map((ing: string) => (
-                                  <Badge key={ing} variant="secondary" className="text-[9px] bg-muted/60 border-none font-medium">{ing}</Badge>
-                                ))}
-                                {recipe.ingredients.length > 4 && <span className="text-[9px] text-muted-foreground font-medium">+{recipe.ingredients.length - 4} more</span>}
-                              </div>
-                              <div className="bg-background/40 p-3 rounded-xl border border-border/40">
-                                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
-                                  <ChevronRight className="w-3 h-3" />
-                                  Preparation
-                                </div>
-                                <ol className="space-y-1.5">
-                                  {recipe.instructions.map((ins: string, i: number) => (
-                                    <li key={i} className="text-xs text-foreground/80 leading-relaxed flex gap-2">
-                                      <span className="text-primary/40 font-bold">{i + 1}.</span>
-                                      {ins}
-                                    </li>
-                                  ))}
-                                </ol>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-border/40 bg-muted/20 flex items-center justify-between">
-              <div className="text-xs font-medium text-muted-foreground italic flex items-center gap-2">
-                <Leaf className="w-3.5 h-3.5" />
-                Plan curated using Sattvic principles
-              </div>
-              <Button onClick={() => setShowMealDialog(false)} variant="secondary" className="rounded-xl px-8">Close Plan</Button>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <PreferencesForm
+                prefs={prefs}
+                setPrefs={setPrefs}
+                onGenerate={generateMealPlan}
+                onCancel={() => setShowPrefsDialog(false)}
+                loading={generatingPlan}
+              />
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* ------------------------------------------------------------------ */}
+        {/* Step 2 Dialog — Rich AI meal plan display                          */}
+        {/* ------------------------------------------------------------------ */}
+        <Dialog open={showMealDialog} onOpenChange={setShowMealDialog}>
+          <DialogContent className="sm:max-w-5xl bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden max-h-[92vh]">
+            {/* Header */}
+            <div className="p-6 border-b border-border/40 bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="font-serif text-2xl">Your Ayurvedic Day Plan</DialogTitle>
+                  <DialogDescription className="text-base">
+                    Crafted by your AI dietician based on your dosha, health goal, and preferences.
+                  </DialogDescription>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(92vh-160px)] bg-background/30">
+              {mealPlan && (
+                <div className="p-6 space-y-6">
+                  {/* Summary banner */}
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    {/* Profile summary */}
+                    <div className="sm:col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/15 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70 flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Plan Context
+                      </p>
+                      <p className="text-sm text-foreground/80 leading-relaxed">{mealPlan.profile_summary}</p>
+                    </div>
+
+                    {/* Hydration */}
+                    <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/40 dark:border-blue-800/30 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <Droplets className="w-3 h-3" /> Hydration
+                      </p>
+                      <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">{mealPlan.hydration}</p>
+                    </div>
+                  </div>
+
+                  {/* Why this works */}
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
+                      <Leaf className="w-3 h-3" /> Today's Nutritional Strategy
+                    </p>
+                    <p className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed">{mealPlan.why_this_works}</p>
+                  </div>
+
+                  {/* Clinician note if present */}
+                  {mealPlan.clinician_note && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/30">
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                      <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                        <span className="font-bold">Clinical Note: </span>
+                        {mealPlan.clinician_note}
+                      </p>
+                    </div>
+                  )}
+
+                  <Separator className="bg-border/40" />
+
+                  {/* Meal cards grid */}
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {(Object.keys(mealMeta) as Array<keyof AIMealPlan["meals"]>).map((mealKey) => {
+                      const meal = mealPlan.meals[mealKey];
+                      if (!meal) return null;
+                      return (
+                        <motion.div
+                          key={mealKey}
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Object.keys(mealMeta).indexOf(mealKey) * 0.07 }}
+                        >
+                          <MealCard mealKey={mealKey} meal={meal} />
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-border/40 bg-muted/20 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground italic">
+                <Leaf className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Plan crafted using Sattvic principles. Not a substitute for clinical advice.</span>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  onClick={() => { setShowMealDialog(false); setShowPrefsDialog(true); }}
+                  className="rounded-xl gap-2 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Regenerate
+                </Button>
+                <Button onClick={() => setShowMealDialog(false)} variant="secondary" className="rounded-xl px-6">
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

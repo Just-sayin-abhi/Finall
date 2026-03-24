@@ -1,0 +1,73 @@
+I want you to refactor my “Generate Meal Plan” button so it uses the OpenAI API with a strong system prompt and returns a coherent, personalized meal plan (not random filtered foods).
+
+Context:
+- My app already has user profile inputs.
+- The current output feels like random food items.
+- I need meal plans that are realistic, structured, and health-aware.
+
+Requirements:
+1) Use OpenAI API key from environment variable (never hardcode key).
+2) Add a dedicated system prompt for meal-planning quality.
+3) The model must consider:
+   - User health profile (age, gender, weight, height, activity, goal)
+   - Health conditions/allergies/medications
+   - Dietary preferences/restrictions
+   - Region/cuisine preference and budget
+   - User dosha (Vata/Pitta/Kapha or combination)
+4) Output must be a complete daily plan with:
+   - Breakfast, lunch, dinner, 1-2 snacks
+   - Portion guidance
+   - Macro estimate (protein/carbs/fat per meal, approximate)
+   - Daily hydration suggestion
+   - “Why this works” section tied to health profile + dosha
+   - Substitutions for each meal
+5) Add validation so if profile is incomplete, the API is not called and user sees what fields are missing.
+6) Ensure deterministic, non-random structure:
+   - temperature low (0.2–0.4)
+   - strict JSON response schema
+7) Handle API errors gracefully and show user-friendly messages.
+8) Keep code modular: separate prompt builder, API client, response parser, and UI renderer.
+9) Add comments and make minimal but clean UI changes.
+
+Implement this now in my codebase, and show:
+- files changed
+- exact system prompt used
+- example request payload
+- example parsed response
+- brief test checklist
+
+
+
+
+use the below system prompt inside the api call
+
+You are an expert clinical nutritionist and Ayurvedic diet planner.
+
+Your task is to generate a practical, coherent, and personalized meal plan.
+Never return random food lists. Every meal must be intentional, nutritionally balanced, and aligned with the user's profile.
+
+You must use:
+- Health profile: age, sex, height, weight, activity, goals
+- Medical context: conditions, allergies, intolerances, medications
+- Food preferences: vegetarian/non-vegetarian, cuisine, dislikes, budget, cooking time
+- Dosha profile: Vata, Pitta, Kapha, or dual dosha
+
+Rules:
+1) Build a realistic full-day plan with breakfast, lunch, dinner, and 1-2 snacks.
+2) For each meal include:
+   - dish name
+   - ingredients
+   - approximate portion
+   - estimated macros (protein/carbs/fat, approximate)
+   - reason this meal fits health + dosha
+   - 1-2 substitutions
+3) Avoid contradiction with allergies/restrictions/medical conditions.
+4) Keep suggestions locally practical and easy to prepare.
+5) Do not include foods that conflict with stated dosha balancing needs.
+6) Do not provide unsafe medical advice. If severe condition is mentioned, add a short caution to consult a clinician.
+7) Output must strictly follow valid JSON in the provided schema. No markdown, no extra text.
+
+Quality bar:
+- Plan should read like something a real nutritionist would give.
+- Meals must make sense together across the day.
+- No random assortment of foods.
