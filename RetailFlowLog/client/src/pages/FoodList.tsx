@@ -338,87 +338,171 @@ function TierSection({
 }
 
 // ---------------------------------------------------------------------------
-// MealCard — renders a single AI-generated meal entry
+// MealRow — clickable summary row shown in the overview list
 // ---------------------------------------------------------------------------
-function MealCard({ mealKey, meal }: { mealKey: keyof AIMealPlan["meals"]; meal: MealEntry }) {
+function MealRow({
+  mealKey,
+  meal,
+  onClick,
+}: {
+  mealKey: keyof AIMealPlan["meals"];
+  meal: MealEntry;
+  onClick: () => void;
+}) {
   const meta = mealMeta[mealKey];
   const Icon = meta.icon;
 
   return (
-    <Card className="bg-card/60 backdrop-blur-sm border-border/40 shadow-sm overflow-hidden">
-      {/* Meal header */}
-      <div className={`flex items-center gap-3 px-5 py-4 ${meta.color} border-b border-border/10`}>
-        <div className="w-8 h-8 rounded-xl bg-background/30 flex items-center justify-center shadow-sm flex-shrink-0">
-          <Icon className="w-4 h-4" />
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
+    >
+      <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card/60 hover:bg-card hover:border-primary/30 hover:shadow-md transition-all duration-200 group">
+        {/* Icon */}
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${meta.color} shadow-sm`}>
+          <Icon className="w-5 h-5" />
+        </div>
+
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">{meta.label}</p>
+          <h5 className="font-bold text-base leading-tight truncate">{meal.dish_name}</h5>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {meal.macros.protein} protein · {meal.macros.carbs} carbs · {meal.macros.fat} fat
+          </p>
+        </div>
+
+        {/* Calorie badge + arrow */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Badge variant="secondary" className="text-[11px] font-bold bg-muted/60 border-none">
+            {meal.macros.calories}
+          </Badge>
+          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MealDetailView — full detail for a single selected meal
+// ---------------------------------------------------------------------------
+function MealDetailView({
+  mealKey,
+  meal,
+  onBack,
+}: {
+  mealKey: keyof AIMealPlan["meals"];
+  meal: MealEntry;
+  onBack: () => void;
+}) {
+  const meta = mealMeta[mealKey];
+  const Icon = meta.icon;
+
+  return (
+    <motion.div
+      key="detail"
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 40 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+      className="space-y-5"
+    >
+      {/* Back button + meal identity */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          className="rounded-xl gap-1.5 text-sm font-semibold shrink-0 -ml-1"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          All Meals
+        </Button>
+      </div>
+
+      {/* Meal hero header */}
+      <div className={`flex items-center gap-4 p-5 rounded-2xl ${meta.color} border border-current/10`}>
+        <div className="w-14 h-14 rounded-2xl bg-background/30 flex items-center justify-center shadow-sm flex-shrink-0">
+          <Icon className="w-7 h-7" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{meta.label}</p>
-          <h5 className="font-bold text-base leading-tight truncate">{meal.dish_name}</h5>
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-0.5">{meta.label}</p>
+          <h4 className="font-serif font-bold text-xl leading-tight">{meal.dish_name}</h4>
         </div>
-        <Badge variant="secondary" className="text-[10px] bg-background/30 border-none font-bold shrink-0">
+        <Badge variant="secondary" className="text-sm font-bold bg-background/40 border-none shrink-0 px-3 py-1.5">
           {meal.macros.calories}
         </Badge>
       </div>
 
-      <div className="p-5 space-y-4">
-        {/* Macros row */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: "Protein", value: meal.macros.protein, color: "text-blue-600 dark:text-blue-400" },
-            { label: "Carbs", value: meal.macros.carbs, color: "text-amber-600 dark:text-amber-400" },
-            { label: "Fat", value: meal.macros.fat, color: "text-rose-600 dark:text-rose-400" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="text-center p-2 rounded-xl bg-muted/30 border border-border/30">
-              <p className={`text-sm font-bold ${color}`}>{value}</p>
-              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
-            </div>
+      {/* Macros grid */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Protein", value: meal.macros.protein, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200/40 dark:border-blue-800/30" },
+          { label: "Carbs", value: meal.macros.carbs, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200/40 dark:border-amber-800/30" },
+          { label: "Fat", value: meal.macros.fat, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-950/20 border-rose-200/40 dark:border-rose-800/30" },
+        ].map(({ label, value, color, bg }) => (
+          <div key={label} className={`text-center p-3 rounded-xl border ${bg}`}>
+            <p className={`text-base font-bold ${color}`}>{value}</p>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Portion */}
+      <div className="flex items-center gap-2.5 bg-muted/30 rounded-xl px-4 py-3 border border-border/30">
+        <Utensils className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Portion</p>
+          <p className="text-sm font-semibold">{meal.portion}</p>
+        </div>
+      </div>
+
+      {/* Ingredients */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Ingredients</p>
+        <div className="flex flex-wrap gap-2">
+          {meal.ingredients.map((ing) => (
+            <Badge
+              key={ing}
+              variant="secondary"
+              className="text-xs bg-primary/5 text-primary border border-primary/15 font-medium px-3 py-1 rounded-xl"
+            >
+              {ing}
+            </Badge>
           ))}
         </div>
-
-        {/* Portion */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 rounded-xl px-3 py-2">
-          <Utensils className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="font-medium">{meal.portion}</span>
-        </div>
-
-        {/* Ingredients */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Ingredients</p>
-          <div className="flex flex-wrap gap-1.5">
-            {meal.ingredients.map((ing) => (
-              <Badge key={ing} variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 font-medium">
-                {ing}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Why this works */}
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">
-            <Leaf className="w-3 h-3" /> Why This Works
-          </p>
-          <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">{meal.why}</p>
-        </div>
-
-        {/* Substitutions */}
-        {meal.substitutions && meal.substitutions.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3" /> Substitutions
-            </p>
-            <ul className="space-y-1">
-              {meal.substitutions.map((sub, i) => (
-                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0 text-primary/50" />
-                  {sub}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Why this works */}
+      <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+          <Leaf className="w-3.5 h-3.5" /> Why This Works
+        </p>
+        <p className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed">{meal.why}</p>
+      </div>
+
+      {/* Substitutions */}
+      {meal.substitutions && meal.substitutions.length > 0 && (
+        <div className="p-4 rounded-2xl bg-muted/20 border border-border/30">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+            <RefreshCw className="w-3.5 h-3.5" /> Substitutions
+          </p>
+          <ul className="space-y-2">
+            {meal.substitutions.map((sub, i) => (
+              <li key={i} className="text-sm text-foreground/80 flex items-start gap-2.5 leading-relaxed">
+                <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold">{i + 1}</span>
+                </div>
+                {sub}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -590,6 +674,8 @@ export default function FoodList() {
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [mealPlan, setMealPlan] = useState<AIMealPlan | null>(null);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  // Drill-down: which meal is currently open (null = overview)
+  const [selectedMeal, setSelectedMeal] = useState<keyof AIMealPlan["meals"] | null>(null);
 
   // Preferences form state
   const [prefs, setPrefs] = useState<Preferences>({
@@ -921,106 +1007,147 @@ export default function FoodList() {
         </Dialog>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Step 2 Dialog — Rich AI meal plan display                          */}
+        {/* Step 2 Dialog — Drill-down meal plan display                       */}
         {/* ------------------------------------------------------------------ */}
-        <Dialog open={showMealDialog} onOpenChange={setShowMealDialog}>
-          <DialogContent className="sm:max-w-5xl bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden max-h-[92vh]">
-            {/* Header */}
-            <div className="p-6 border-b border-border/40 bg-muted/20">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="font-serif text-2xl">Your Ayurvedic Day Plan</DialogTitle>
-                  <DialogDescription className="text-base">
-                    Crafted by your AI dietician based on your dosha, health goal, and preferences.
-                  </DialogDescription>
-                </div>
+        <Dialog
+          open={showMealDialog}
+          onOpenChange={(open) => {
+            setShowMealDialog(open);
+            if (!open) setSelectedMeal(null); // reset drill-down on close
+          }}
+        >
+          <DialogContent className="sm:max-w-lg bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden max-h-[92vh]">
+            {/* Header — changes title based on drill-down state */}
+            <div className="p-5 border-b border-border/40 bg-muted/20 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="font-serif text-xl leading-tight">
+                  {selectedMeal ? mealMeta[selectedMeal].label : "Your Ayurvedic Day Plan"}
+                </DialogTitle>
+                <DialogDescription className="text-xs truncate">
+                  {selectedMeal
+                    ? mealPlan?.meals[selectedMeal]?.dish_name
+                    : "Tap any meal to see full details"}
+                </DialogDescription>
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(92vh-160px)] bg-background/30">
+            {/* Scrollable body */}
+            <div className="overflow-y-auto max-h-[calc(92vh-150px)] bg-background/20">
               {mealPlan && (
-                <div className="p-6 space-y-6">
-                  {/* Summary banner */}
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    {/* Profile summary */}
-                    <div className="sm:col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/15 space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70 flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Plan Context
-                      </p>
-                      <p className="text-sm text-foreground/80 leading-relaxed">{mealPlan.profile_summary}</p>
-                    </div>
+                <AnimatePresence mode="wait">
+                  {selectedMeal === null ? (
+                    /* ---- OVERVIEW ---- */
+                    <motion.div
+                      key="overview"
+                      initial={{ opacity: 0, x: -24 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -24 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="p-5 space-y-5"
+                    >
+                      {/* Summary banners */}
+                      <div className="p-4 rounded-2xl bg-primary/5 border border-primary/15 space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70 flex items-center gap-1">
+                          <Info className="w-3 h-3" /> Plan Context
+                        </p>
+                        <p className="text-sm text-foreground/80 leading-relaxed">{mealPlan.profile_summary}</p>
+                      </div>
 
-                    {/* Hydration */}
-                    <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/40 dark:border-blue-800/30 space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                        <Droplets className="w-3 h-3" /> Hydration
-                      </p>
-                      <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">{mealPlan.hydration}</p>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/40 dark:border-blue-800/30">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-1 mb-1">
+                            <Droplets className="w-3 h-3" /> Hydration
+                          </p>
+                          <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">{mealPlan.hydration}</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-1">
+                            <Leaf className="w-3 h-3" /> Strategy
+                          </p>
+                          <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed line-clamp-3">{mealPlan.why_this_works}</p>
+                        </div>
+                      </div>
 
-                  {/* Why this works */}
-                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
-                      <Leaf className="w-3 h-3" /> Today's Nutritional Strategy
-                    </p>
-                    <p className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed">{mealPlan.why_this_works}</p>
-                  </div>
+                      {mealPlan.clinician_note && (
+                        <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/30">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                            <span className="font-bold">Clinical Note: </span>
+                            {mealPlan.clinician_note}
+                          </p>
+                        </div>
+                      )}
 
-                  {/* Clinician note if present */}
-                  {mealPlan.clinician_note && (
-                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/30">
-                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-                      <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
-                        <span className="font-bold">Clinical Note: </span>
-                        {mealPlan.clinician_note}
-                      </p>
+                      <Separator className="bg-border/40" />
+
+                      {/* Meal rows — tap to open detail */}
+                      <div className="space-y-2.5">
+                        {(Object.keys(mealMeta) as Array<keyof AIMealPlan["meals"]>).map((mealKey, i) => {
+                          const meal = mealPlan.meals[mealKey];
+                          if (!meal) return null;
+                          return (
+                            <motion.div
+                              key={mealKey}
+                              initial={{ opacity: 0, y: 12 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.06 }}
+                            >
+                              <MealRow
+                                mealKey={mealKey}
+                                meal={meal}
+                                onClick={() => setSelectedMeal(mealKey)}
+                              />
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    /* ---- DRILL-DOWN DETAIL ---- */
+                    <div className="p-5">
+                      <MealDetailView
+                        key={selectedMeal}
+                        mealKey={selectedMeal}
+                        meal={mealPlan.meals[selectedMeal]}
+                        onBack={() => setSelectedMeal(null)}
+                      />
                     </div>
                   )}
-
-                  <Separator className="bg-border/40" />
-
-                  {/* Meal cards grid */}
-                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {(Object.keys(mealMeta) as Array<keyof AIMealPlan["meals"]>).map((mealKey) => {
-                      const meal = mealPlan.meals[mealKey];
-                      if (!meal) return null;
-                      return (
-                        <motion.div
-                          key={mealKey}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Object.keys(mealMeta).indexOf(mealKey) * 0.07 }}
-                        >
-                          <MealCard mealKey={mealKey} meal={meal} />
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </div>
+                </AnimatePresence>
               )}
             </div>
 
             {/* Footer */}
-            <div className="p-5 border-t border-border/40 bg-muted/20 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground italic">
-                <Leaf className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>Plan crafted using Sattvic principles. Not a substitute for clinical advice.</span>
-              </div>
+            <div className="p-4 border-t border-border/40 bg-muted/20 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1.5">
+                <Leaf className="w-3 h-3 flex-shrink-0" />
+                Not a substitute for clinical advice.
+              </p>
               <div className="flex gap-2 shrink-0">
+                {selectedMeal === null && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setShowMealDialog(false); setSelectedMeal(null); setShowPrefsDialog(true); }}
+                    className="rounded-xl gap-1.5 text-xs"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Regenerate
+                  </Button>
+                )}
                 <Button
-                  variant="ghost"
-                  onClick={() => { setShowMealDialog(false); setShowPrefsDialog(true); }}
-                  className="rounded-xl gap-2 text-xs"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    if (selectedMeal) setSelectedMeal(null);
+                    else setShowMealDialog(false);
+                  }}
+                  className="rounded-xl px-5"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  Regenerate
-                </Button>
-                <Button onClick={() => setShowMealDialog(false)} variant="secondary" className="rounded-xl px-6">
-                  Close
+                  {selectedMeal ? "Back" : "Close"}
                 </Button>
               </div>
             </div>
