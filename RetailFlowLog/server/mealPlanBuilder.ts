@@ -2,17 +2,14 @@
  * mealPlanBuilder.ts
  *
  * Isolated module responsible for:
- *  1. Building the expert system prompt
+ *  1. Building the expert system prompt (7-day plan)
  *  2. Building the structured user prompt from profile context
  *  3. Calling the OpenAI API with strict JSON output
- *  4. Parsing and validating the structured response
+ *  4. Parsing and validating the 7-day structured response
  */
 
 import OpenAI from "openai";
 
-// ---------------------------------------------------------------------------
-// OpenAI client — uses the Replit AI integrations env vars
-// ---------------------------------------------------------------------------
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -23,7 +20,6 @@ const openai = new OpenAI({
 // ---------------------------------------------------------------------------
 
 export interface MealPlanContext {
-  // From user profile
   age: number | null;
   gender: string | null;
   heightCm: number | null;
@@ -31,29 +27,21 @@ export interface MealPlanContext {
   bmi: number | null;
   maintenanceCalories: number | null;
   activityLevel: string | null;
-
-  // From dosha assessment
   primaryDosha: string;
   secondaryDosha: string | null;
   constitutionType: string;
   vataPercent: number;
   pittaPercent: number;
   kaphaPercent: number;
-
-  // From health goal
   healthGoalLabel: string | null;
-
-  // Recommended foods (tier 1 names only — keeps prompt concise)
   recommendedFoods: string[];
-
-  // Additional preferences collected from the frontend form
   preferences: {
-    dietaryRestrictions: string;   // e.g. "vegetarian", "vegan", "no restriction"
-    allergies: string;             // free text
-    healthConditions: string;      // free text, e.g. "type 2 diabetes, high BP"
-    cuisinePreference: string;     // e.g. "South Indian", "North Indian", "Any"
-    budget: string;                // e.g. "budget", "moderate", "premium"
-    cookingTime: string;           // e.g. "under 30 min", "up to 1 hour", "no limit"
+    dietaryRestrictions: string;
+    allergies: string;
+    healthConditions: string;
+    cuisinePreference: string;
+    budget: string;
+    cookingTime: string;
   };
 }
 
@@ -71,11 +59,9 @@ export interface MealEntry {
   substitutions: string[];
 }
 
-export interface MealPlanResponse {
-  profile_summary: string;
-  hydration: string;
-  why_this_works: string;
-  clinician_note?: string;
+export interface DayPlan {
+  day: number;
+  day_name: string;
   meals: {
     breakfast: MealEntry;
     morning_snack: MealEntry;
@@ -85,115 +71,128 @@ export interface MealPlanResponse {
   };
 }
 
+export interface MealPlanResponse {
+  week_summary: string;
+  hydration: string;
+  weekly_strategy: string;
+  clinician_note?: string;
+  days: DayPlan[];
+}
+
 // ---------------------------------------------------------------------------
-// 1. System prompt — the expert persona & strict rules
+// 1. System prompt
 // ---------------------------------------------------------------------------
 export function buildSystemPrompt(): string {
   return `You are an expert clinical nutritionist and Ayurvedic diet planner.
 
-Your task is to generate a practical, coherent, and personalized meal plan.
+Your task is to generate a practical, coherent, and fully personalised 7-day meal plan.
 Never return random food lists. Every meal must be intentional, nutritionally balanced, and aligned with the user's profile.
 
 You must use:
 - Health profile: age, sex, height, weight, activity level, goals
 - Medical context: conditions, allergies, intolerances, medications
-- Food preferences: vegetarian/non-vegetarian, cuisine preference, dislikes, budget, cooking time
+- Food preferences: dietary restrictions, cuisine preference, budget, cooking time
 - Dosha profile: Vata, Pitta, Kapha, or dual dosha with percentages
 
 Rules:
-1) Build a realistic full-day plan with breakfast, morning snack, lunch, evening snack, and dinner.
-2) For each meal include:
-   - dish_name: a real, nameable dish (not "mixed ingredients")
+1) Generate all 7 days. Each day must have breakfast, morning_snack, lunch, evening_snack, and dinner.
+2) Vary meals across the 7 days — do not repeat the same dish within the same week.
+3) For each meal include:
+   - dish_name: a real, nameable dish
    - ingredients: a realistic ingredient list
    - portion: practical serving size in grams/cups/pieces
    - macros: approximate protein, carbs, fat, and total calories
-   - why: 1-2 sentences explaining why this meal fits the user's health + dosha
-   - substitutions: 1-2 practical swaps using locally available alternatives
-3) Avoid any contradiction with stated allergies, restrictions, or medical conditions.
-4) Keep suggestions locally practical and easy to prepare within the stated cooking time budget.
-5) Do not include foods that conflict with stated dosha balancing needs.
-6) If a severe medical condition is mentioned (e.g. dialysis, cancer, eating disorder), add a short clinician_note advising them to consult a healthcare provider.
-7) The profile_summary field should be a single sentence confirming you understood the key profile points.
-8) The why_this_works field should be 2-3 sentences explaining the overall strategy for the day.
-9) The hydration field should give a daily water intake recommendation with a simple tip.
-10) Output MUST be valid JSON matching the schema exactly. No markdown fences, no extra text outside JSON.
-
-Quality bar:
-- Plan should read like something a real nutritionist would give.
-- Meals must make sense together across the day.
-- No random assortment of foods — every choice must be deliberate.
-- Macros must be internally consistent and realistic.`;
+   - why: 1-2 sentences tying this meal to the user's dosha + health goal
+   - substitutions: 1-2 practical ingredient swaps
+4) Avoid contradiction with allergies, restrictions, or medical conditions throughout the whole week.
+5) Keep suggestions locally practical and within the stated cooking time.
+6) If a severe medical condition is mentioned, add a clinician_note.
+7) week_summary: one sentence acknowledging the key profile points.
+8) weekly_strategy: 2-3 sentences on the week's overall nutritional approach.
+9) hydration: a daily water intake recommendation with a practical tip.
+10) day_name must be the day of the week (Monday, Tuesday, ... Sunday).
+11) Output MUST be valid JSON matching the schema exactly. No markdown fences, no extra text.`;
 }
 
 // ---------------------------------------------------------------------------
-// 2. User prompt — builds context-rich message from the user's profile data
+// 2. User prompt
 // ---------------------------------------------------------------------------
 export function buildUserPrompt(ctx: MealPlanContext): string {
-  const constitution = ctx.constitutionType === 'dual'
-    ? `${ctx.primaryDosha}-${ctx.secondaryDosha} (dual dosha)`
-    : `${ctx.primaryDosha} (single dosha)`;
+  const constitution =
+    ctx.constitutionType === "dual"
+      ? `${ctx.primaryDosha}-${ctx.secondaryDosha} (dual dosha)`
+      : `${ctx.primaryDosha} (single dosha)`;
 
   const doshaBreakdown = `Vata ${ctx.vataPercent}% / Pitta ${ctx.pittaPercent}% / Kapha ${ctx.kaphaPercent}%`;
 
   const profileLines = [
-    `Age: ${ctx.age ?? 'unknown'}`,
-    `Sex: ${ctx.gender ?? 'unknown'}`,
-    `Height: ${ctx.heightCm ? ctx.heightCm + ' cm' : 'unknown'}`,
-    `Weight: ${ctx.weightKg ? ctx.weightKg + ' kg' : 'unknown'}`,
-    `BMI: ${ctx.bmi ? ctx.bmi.toFixed(1) : 'unknown'}`,
-    `Activity level: ${ctx.activityLevel ?? 'unknown'}`,
-    `Estimated daily calorie need: ${ctx.maintenanceCalories ? ctx.maintenanceCalories + ' kcal' : 'unknown'}`,
-    `Primary health goal: ${ctx.healthGoalLabel ?? 'General wellness'}`,
-  ].join('\n');
-
-  const doshaLines = [
-    `Dosha constitution: ${constitution}`,
-    `Dosha breakdown: ${doshaBreakdown}`,
-  ].join('\n');
+    `Age: ${ctx.age ?? "unknown"}`,
+    `Sex: ${ctx.gender ?? "unknown"}`,
+    `Height: ${ctx.heightCm ? ctx.heightCm + " cm" : "unknown"}`,
+    `Weight: ${ctx.weightKg ? ctx.weightKg + " kg" : "unknown"}`,
+    `BMI: ${ctx.bmi ? ctx.bmi.toFixed(1) : "unknown"}`,
+    `Activity level: ${ctx.activityLevel ?? "unknown"}`,
+    `Estimated daily calorie need: ${ctx.maintenanceCalories ? ctx.maintenanceCalories + " kcal" : "unknown"}`,
+    `Primary health goal: ${ctx.healthGoalLabel ?? "General wellness"}`,
+  ].join("\n");
 
   const prefLines = [
-    `Dietary restrictions: ${ctx.preferences.dietaryRestrictions || 'None stated'}`,
-    `Allergies / intolerances: ${ctx.preferences.allergies || 'None stated'}`,
-    `Health conditions: ${ctx.preferences.healthConditions || 'None stated'}`,
-    `Cuisine preference: ${ctx.preferences.cuisinePreference || 'Indian — any region'}`,
-    `Budget: ${ctx.preferences.budget || 'Moderate'}`,
-    `Cooking time available: ${ctx.preferences.cookingTime || 'Up to 1 hour'}`,
-  ].join('\n');
+    `Dietary restrictions: ${ctx.preferences.dietaryRestrictions || "None"}`,
+    `Allergies / intolerances: ${ctx.preferences.allergies || "None"}`,
+    `Health conditions: ${ctx.preferences.healthConditions || "None"}`,
+    `Cuisine preference: ${ctx.preferences.cuisinePreference || "Indian — any region"}`,
+    `Budget: ${ctx.preferences.budget || "Moderate"}`,
+    `Cooking time available: ${ctx.preferences.cookingTime || "Up to 1 hour"}`,
+  ].join("\n");
 
-  const foodList = ctx.recommendedFoods.length > 0
-    ? `Preferred Ayurvedic foods for this constitution (use these as priority ingredients):\n${ctx.recommendedFoods.slice(0, 40).join(', ')}`
-    : 'No specific food restrictions from Ayurvedic assessment.';
+  const foodList =
+    ctx.recommendedFoods.length > 0
+      ? `Priority Ayurvedic foods for this constitution:\n${ctx.recommendedFoods.slice(0, 40).join(", ")}`
+      : "No specific food restrictions from assessment.";
 
   const schema = `
-Respond with ONLY this JSON structure (no extra keys, no markdown):
+Respond with ONLY this exact JSON (no extra keys, no markdown):
 {
-  "profile_summary": "<one sentence confirming you understood key profile points>",
-  "hydration": "<daily water intake recommendation + a practical tip>",
-  "why_this_works": "<2-3 sentences on the day's overall nutritional strategy>",
-  "clinician_note": "<optional: only include if severe medical condition warrants it, otherwise omit>",
-  "meals": {
-    "breakfast": {
-      "dish_name": "<name>",
-      "ingredients": ["<ingredient 1>", "<ingredient 2>"],
-      "portion": "<e.g. 1 bowl ~300g>",
-      "macros": { "protein": "<Xg>", "carbs": "<Xg>", "fat": "<Xg>", "calories": "<X kcal>" },
-      "why": "<why this fits dosha + health goal>",
-      "substitutions": ["<swap 1>", "<swap 2>"]
+  "week_summary": "<one sentence confirming profile understood>",
+  "hydration": "<daily water intake recommendation + tip>",
+  "weekly_strategy": "<2-3 sentences on the week's nutritional approach>",
+  "clinician_note": "<optional — only if severe condition warrants it>",
+  "days": [
+    {
+      "day": 1,
+      "day_name": "Monday",
+      "meals": {
+        "breakfast": {
+          "dish_name": "<name>",
+          "ingredients": ["<ingredient>"],
+          "portion": "<e.g. 1 bowl ~300g>",
+          "macros": { "protein": "<Xg>", "carbs": "<Xg>", "fat": "<Xg>", "calories": "<X kcal>" },
+          "why": "<why this fits dosha + health goal>",
+          "substitutions": ["<swap 1>", "<swap 2>"]
+        },
+        "morning_snack": { "<same structure>" },
+        "lunch": { "<same structure>" },
+        "evening_snack": { "<same structure>" },
+        "dinner": { "<same structure>" }
+      }
     },
-    "morning_snack": { <same structure> },
-    "lunch": { <same structure> },
-    "evening_snack": { <same structure> },
-    "dinner": { <same structure> }
-  }
+    { "day": 2, "day_name": "Tuesday", "meals": { ... } },
+    { "day": 3, "day_name": "Wednesday", "meals": { ... } },
+    { "day": 4, "day_name": "Thursday", "meals": { ... } },
+    { "day": 5, "day_name": "Friday", "meals": { ... } },
+    { "day": 6, "day_name": "Saturday", "meals": { ... } },
+    { "day": 7, "day_name": "Sunday", "meals": { ... } }
+  ]
 }`;
 
-  return `Please generate a single-day personalized Ayurvedic meal plan for the following user:
+  return `Generate a 7-day personalised Ayurvedic meal plan for this user:
 
 --- HEALTH PROFILE ---
 ${profileLines}
 
 --- DOSHA PROFILE ---
-${doshaLines}
+Constitution: ${constitution}
+Breakdown: ${doshaBreakdown}
 
 --- PREFERENCES & RESTRICTIONS ---
 ${prefLines}
@@ -206,7 +205,7 @@ ${schema}`;
 }
 
 // ---------------------------------------------------------------------------
-// 3. Validation: check for required profile fields
+// 3. Validation
 // ---------------------------------------------------------------------------
 export interface ProfileValidationResult {
   valid: boolean;
@@ -225,7 +224,7 @@ export function validateProfileCompleteness(ctx: MealPlanContext): ProfileValida
 }
 
 // ---------------------------------------------------------------------------
-// 4. OpenAI API call — low temperature for deterministic, high-quality output
+// 4. OpenAI call
 // ---------------------------------------------------------------------------
 export async function callOpenAIForMealPlan(
   systemPrompt: string,
@@ -238,21 +237,18 @@ export async function callOpenAIForMealPlan(
       { role: "user", content: userPrompt },
     ],
     temperature: 0.3,
-    max_completion_tokens: 3000,
+    max_completion_tokens: 8000,
   });
 
   const raw = response.choices[0]?.message?.content;
-  if (!raw) {
-    throw new Error("OpenAI returned an empty response.");
-  }
+  if (!raw) throw new Error("OpenAI returned an empty response.");
   return raw;
 }
 
 // ---------------------------------------------------------------------------
-// 5. Response parser — strips any accidental markdown fences and parses JSON
+// 5. Response parser
 // ---------------------------------------------------------------------------
 export function parseMealPlanResponse(raw: string): MealPlanResponse {
-  // Strip markdown code fences if model accidentally adds them
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/i, "")
@@ -262,18 +258,18 @@ export function parseMealPlanResponse(raw: string): MealPlanResponse {
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error("OpenAI response was not valid JSON. Raw: " + cleaned.slice(0, 200));
+    throw new Error("OpenAI response was not valid JSON. Raw: " + cleaned.slice(0, 300));
   }
 
-  // Light structural validation
-  if (!parsed.meals || typeof parsed.meals !== "object") {
-    throw new Error("Response missing 'meals' field.");
+  if (!Array.isArray(parsed.days) || parsed.days.length !== 7) {
+    throw new Error(`Expected 7 days, got ${parsed.days?.length ?? 0}.`);
   }
 
   const requiredMeals = ["breakfast", "morning_snack", "lunch", "evening_snack", "dinner"];
-  for (const meal of requiredMeals) {
-    if (!parsed.meals[meal]) {
-      throw new Error(`Response missing meal: ${meal}`);
+  for (const dayPlan of parsed.days) {
+    if (!dayPlan.meals) throw new Error(`Day ${dayPlan.day} missing meals.`);
+    for (const meal of requiredMeals) {
+      if (!dayPlan.meals[meal]) throw new Error(`Day ${dayPlan.day} missing meal: ${meal}`);
     }
   }
 

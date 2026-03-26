@@ -33,6 +33,8 @@ import {
   RefreshCw,
   AlertCircle,
   Flame,
+  Download,
+  Calendar,
 } from "lucide-react";
 import Chatbot from "@/components/Chatbot";
 import {
@@ -49,6 +51,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { jsPDF } from "jspdf";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,11 +73,9 @@ interface MealEntry {
   substitutions: string[];
 }
 
-interface AIMealPlan {
-  profile_summary: string;
-  hydration: string;
-  why_this_works: string;
-  clinician_note?: string;
+interface DayPlan {
+  day: number;
+  day_name: string;
   meals: {
     breakfast: MealEntry;
     morning_snack: MealEntry;
@@ -84,6 +85,14 @@ interface AIMealPlan {
   };
 }
 
+interface AIMealPlan {
+  week_summary: string;
+  hydration: string;
+  weekly_strategy: string;
+  clinician_note?: string;
+  days: DayPlan[];
+}
+
 interface Preferences {
   dietaryRestrictions: string;
   allergies: string;
@@ -91,6 +100,237 @@ interface Preferences {
   cuisinePreference: string;
   budget: string;
   cookingTime: string;
+}
+
+// ---------------------------------------------------------------------------
+// PDF Generator
+// ---------------------------------------------------------------------------
+function downloadMealPlanPDF(plan: AIMealPlan) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 16;
+  const contentW = pageW - margin * 2;
+
+  const GREEN = [46, 125, 50] as [number, number, number];
+  const DARK = [30, 30, 30] as [number, number, number];
+  const MUTED = [100, 100, 100] as [number, number, number];
+  const LIGHT_BG = [245, 245, 240] as [number, number, number];
+  const MEAL_COLORS: Record<string, [number, number, number]> = {
+    breakfast:     [255, 193, 7],
+    morning_snack: [76, 175, 80],
+    lunch:         [33, 150, 243],
+    evening_snack: [255, 152, 0],
+    dinner:        [103, 58, 183],
+  };
+  const MEAL_LABELS: Record<string, string> = {
+    breakfast: "Breakfast",
+    morning_snack: "Morning Snack",
+    lunch: "Lunch",
+    evening_snack: "Evening Snack",
+    dinner: "Dinner",
+  };
+
+  let y = margin;
+
+  const checkPage = (neededHeight: number) => {
+    if (y + neededHeight > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+
+  const drawBox = (x: number, boxY: number, w: number, h: number, color: [number, number, number], radius = 3) => {
+    doc.setFillColor(...color);
+    doc.roundedRect(x, boxY, w, h, radius, radius, "F");
+  };
+
+  const wrapText = (text: string, maxWidth: number, fontSize: number): string[] => {
+    doc.setFontSize(fontSize);
+    return doc.splitTextToSize(text, maxWidth);
+  };
+
+  // ---- Cover page ----
+  drawBox(0, 0, pageW, 48, GREEN);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.text("NIVARANA", margin, 20);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "normal");
+  doc.text("Your 7-Day Ayurvedic Meal Plan", margin, 29);
+  doc.setFontSize(9);
+  doc.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, margin, 38);
+
+  y = 58;
+
+  // Week summary box
+  drawBox(margin, y, contentW, 18, LIGHT_BG);
+  doc.setTextColor(...DARK);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("PLAN CONTEXT", margin + 4, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const summaryLines = wrapText(plan.week_summary, contentW - 8, 9);
+  doc.text(summaryLines, margin + 4, y + 12);
+  y += 18 + Math.max(0, (summaryLines.length - 1) * 4) + 5;
+
+  // Hydration + strategy
+  const halfW = (contentW - 4) / 2;
+  drawBox(margin, y, halfW, 28, [227, 242, 253]);
+  doc.setTextColor(21, 101, 192);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("HYDRATION", margin + 4, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...DARK);
+  const hydLines = wrapText(plan.hydration, halfW - 8, 8);
+  doc.text(hydLines.slice(0, 3), margin + 4, y + 11);
+
+  drawBox(margin + halfW + 4, y, halfW, 28, [232, 245, 233]);
+  doc.setTextColor(...GREEN);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("WEEKLY STRATEGY", margin + halfW + 8, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...DARK);
+  const stratLines = wrapText(plan.weekly_strategy, halfW - 8, 8);
+  doc.text(stratLines.slice(0, 3), margin + halfW + 8, y + 11);
+  y += 34;
+
+  if (plan.clinician_note) {
+    drawBox(margin, y, contentW, 16, [255, 248, 225]);
+    doc.setTextColor(230, 81, 0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text("CLINICAL NOTE", margin + 4, y + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...DARK);
+    const noteLines = wrapText(plan.clinician_note, contentW - 8, 8);
+    doc.text(noteLines.slice(0, 1), margin + 4, y + 12);
+    y += 22;
+  }
+
+  // ---- Day pages ----
+  const mealOrder = ["breakfast", "morning_snack", "lunch", "evening_snack", "dinner"] as const;
+
+  for (const dayPlan of plan.days) {
+    doc.addPage();
+    y = margin;
+
+    // Day header bar
+    drawBox(0, 0, pageW, 22, GREEN);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(`Day ${dayPlan.day} — ${dayPlan.day_name}`, margin, 15);
+    y = 30;
+
+    for (const mealKey of mealOrder) {
+      const meal = dayPlan.meals[mealKey];
+      if (!meal) continue;
+
+      const mealColor = MEAL_COLORS[mealKey] || [100, 100, 100];
+      const mealLabel = MEAL_LABELS[mealKey] || mealKey;
+
+      // Estimate height needed
+      const dishNameLines = wrapText(meal.dish_name, contentW - 30, 10);
+      const whyLines = wrapText(meal.why, contentW - 8, 8);
+      const ingText = meal.ingredients.join(", ");
+      const ingLines = wrapText(ingText, contentW - 8, 8);
+      const estHeight = 8 + dishNameLines.length * 5 + 14 + whyLines.length * 4 + ingLines.length * 4 + 14;
+
+      checkPage(estHeight);
+
+      // Meal colour strip
+      drawBox(margin, y, 4, estHeight - 4, mealColor, 2);
+
+      // Meal label pill
+      drawBox(margin + 6, y, 35, 6, mealColor);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.text(mealLabel.toUpperCase(), margin + 8, y + 4.5);
+
+      // Calories badge
+      doc.setFillColor(240, 240, 240);
+      doc.roundedRect(pageW - margin - 26, y, 26, 6, 2, 2, "F");
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(6.5);
+      doc.text(meal.macros.calories, pageW - margin - 23, y + 4.5);
+
+      y += 8;
+
+      // Dish name
+      doc.setTextColor(...DARK);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(dishNameLines, margin + 6, y);
+      y += dishNameLines.length * 5 + 2;
+
+      // Portion
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text(`Portion: ${meal.portion}`, margin + 6, y);
+      y += 5;
+
+      // Macros row
+      const macroItems = [
+        `Protein: ${meal.macros.protein}`,
+        `Carbs: ${meal.macros.carbs}`,
+        `Fat: ${meal.macros.fat}`,
+      ];
+      const colW = contentW / 3;
+      macroItems.forEach((m, i) => {
+        const colors: [number, number, number][] = [[227,242,253], [255,248,225], [255,235,238]];
+        drawBox(margin + 6 + i * colW, y, colW - 3, 7, colors[i], 2);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...DARK);
+        doc.text(m, margin + 8 + i * colW, y + 5);
+      });
+      y += 10;
+
+      // Ingredients
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...GREEN);
+      doc.text("Ingredients:", margin + 6, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...DARK);
+      doc.setFontSize(8);
+      const ingTextFull = meal.ingredients.join(", ");
+      const wrappedIng = wrapText(ingTextFull, contentW - 8, 8);
+      doc.text(wrappedIng, margin + 6, y + 4);
+      y += 4 + wrappedIng.length * 4 + 2;
+
+      // Why
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...GREEN);
+      doc.text("Why this works:", margin + 6, y);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(7.5);
+      const wrappedWhy = wrapText(meal.why, contentW - 8, 7.5);
+      doc.text(wrappedWhy, margin + 6, y + 4);
+      y += 4 + wrappedWhy.length * 4 + 8;
+    }
+
+    // Page footer
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text("NIVARANA — Personalised Ayurvedic Nutrition. Not a substitute for clinical advice.", margin, pageH - 8);
+    doc.text(`Page ${doc.getNumberOfPages()}`, pageW - margin - 12, pageH - 8);
+  }
+
+  doc.save("nivarana-7-day-meal-plan.pdf");
 }
 
 // ---------------------------------------------------------------------------
