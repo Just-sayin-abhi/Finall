@@ -61,15 +61,15 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/dosha-assessment` / `POST /api/dosha-assessment` — Dosha quiz results
 - `POST /api/health-goals` — Save health goal selection
 - `GET /api/foods` — Get filtered/tiered food recommendations
-- `POST /api/mealplan` — AI-powered single-day meal plan generation via OpenAI (gpt-5.1); validates profile completeness, builds structured prompts, returns JSON with 5 meals, macros, portion, dosha rationale, substitutions, hydration, and daily strategy
+- `POST /api/mealplan` — AI-powered 7-day meal plan generation via OpenAI (gpt-5.1); validates profile completeness, builds structured prompts, returns JSON with 7 `DayPlan` objects (5 meals each), macros, portion, dosha rationale, substitutions, hydration, weekly strategy, and optional clinician note
 - Chat integration routes under `/api/conversations`
 
 **Meal Plan Module** (`RetailFlowLog/server/mealPlanBuilder.ts`): Isolated module with:
 - `buildSystemPrompt()` — Expert clinical nutritionist persona with strict JSON output rules
 - `buildUserPrompt(ctx)` — Builds context-rich prompt from profile, dosha, and preferences
 - `validateProfileCompleteness(ctx)` — Checks required fields before API call
-- `callOpenAIForMealPlan(sys, user)` — OpenAI call, temperature 0.3, max 3000 tokens
-- `parseMealPlanResponse(raw)` — Strips markdown fences, JSON parses, structurally validates
+- `callOpenAIForMealPlan(sys, user)` — OpenAI call, temperature 0.3, max 8000 tokens
+- `parseMealPlanResponse(raw)` — Strips markdown fences, JSON parses, validates all 7 days × 5 meals
 
 **Authentication**: Simple email-based session authentication (not OAuth). Uses `express-session` with `memorystore` for session storage. No password — email serves as the user identifier. Session lasts 1 week.
 
