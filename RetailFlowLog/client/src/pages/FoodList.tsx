@@ -1387,23 +1387,27 @@ export default function FoodList() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-border/40 bg-muted/20 flex items-center justify-between gap-3">
-              <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1.5">
-                <Leaf className="w-3 h-3 flex-shrink-0" />
-                Not a substitute for clinical advice.
-              </p>
-              <div className="flex gap-2 shrink-0">
-                {selectedMeal === null && mealPlan && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadMealPlanPDF(mealPlan)}
-                      className="rounded-xl gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download PDF
-                    </Button>
+            <div className="p-4 border-t border-border/40 bg-muted/20 space-y-2.5">
+              {/* Primary action: Download PDF — full-width, always visible when on overview */}
+              {selectedMeal === null && mealPlan && (
+                <Button
+                  onClick={() => downloadMealPlanPDF(mealPlan)}
+                  className="w-full rounded-xl gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md"
+                  data-testid="btn-download-pdf"
+                >
+                  <Download className="w-4 h-4" />
+                  Download 7-Day Plan as PDF
+                </Button>
+              )}
+
+              {/* Secondary row: disclaimer + secondary actions */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1.5">
+                  <Leaf className="w-3 h-3 flex-shrink-0" />
+                  Not a substitute for clinical advice.
+                </p>
+                <div className="flex gap-2 shrink-0">
+                  {selectedMeal === null && mealPlan && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1413,19 +1417,19 @@ export default function FoodList() {
                       <RefreshCw className="w-3.5 h-3.5" />
                       Regenerate
                     </Button>
-                  </>
-                )}
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    if (selectedMeal) setSelectedMeal(null);
-                    else setShowMealDialog(false);
-                  }}
-                  className="rounded-xl px-5"
-                >
-                  {selectedMeal ? "Back" : "Close"}
-                </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      if (selectedMeal) setSelectedMeal(null);
+                      else setShowMealDialog(false);
+                    }}
+                    className="rounded-xl px-5"
+                  >
+                    {selectedMeal ? "Back" : "Close"}
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>
