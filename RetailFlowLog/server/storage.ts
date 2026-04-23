@@ -3,6 +3,7 @@ import {
   userProfiles, 
   doshaAssessments, 
   userHealthGoals,
+  wellnessCheckins,
   type User, 
   type UpsertUser,
   type UserProfile,
@@ -11,9 +12,11 @@ import {
   type InsertDoshaAssessment,
   type UserHealthGoal,
   type InsertUserHealthGoal,
+  type WellnessCheckin,
+  type InsertWellnessCheckin,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -28,6 +31,9 @@ export interface IStorage {
   
   getHealthGoal(userId: string): Promise<UserHealthGoal | undefined>;
   upsertHealthGoal(goal: InsertUserHealthGoal): Promise<UserHealthGoal>;
+
+  getWellnessCheckins(userId: string): Promise<WellnessCheckin[]>;
+  createWellnessCheckin(checkin: InsertWellnessCheckin): Promise<WellnessCheckin>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -106,6 +112,34 @@ export class DatabaseStorage implements IStorage {
     
     const [newGoal] = await db.insert(userHealthGoals).values(goal).returning();
     return newGoal;
+  }
+
+  async getWellnessCheckins(userId: string): Promise<WellnessCheckin[]> {
+    return await db
+      .select()
+      .from(wellnessCheckins)
+      .where(eq(wellnessCheckins.userId, userId))
+      .orderBy(asc(wellnessCheckins.createdAt));
+  }
+
+  async createWellnessCheckin(checkin: InsertWellnessCheckin): Promise<WellnessCheckin> {
+    const existing = await this.getWellnessCheckins(checkin.userId);
+    const checkinNumber = existing.length + 1;
+    const overallScore =
+      checkin.energy +
+      checkin.digestion +
+      checkin.sleep +
+      checkin.mood +
+      checkin.mentalClarity +
+      checkin.skinHealth +
+      checkin.immunity +
+      checkin.calmness;
+
+    const [newCheckin] = await db
+      .insert(wellnessCheckins)
+      .values({ ...checkin, checkinNumber, overallScore })
+      .returning();
+    return newCheckin;
   }
 }
 

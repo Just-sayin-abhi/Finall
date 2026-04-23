@@ -78,6 +78,24 @@ export const userHealthGoals = pgTable("user_health_goals", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Wellness Check-ins (re-evaluation tests)
+export const wellnessCheckins = pgTable("wellness_checkins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  checkinNumber: integer("checkin_number").notNull(),
+  energy: integer("energy").notNull(),
+  digestion: integer("digestion").notNull(),
+  sleep: integer("sleep").notNull(),
+  mood: integer("mood").notNull(),
+  mentalClarity: integer("mental_clarity").notNull(),
+  skinHealth: integer("skin_health").notNull(),
+  immunity: integer("immunity").notNull(),
+  calmness: integer("calmness").notNull(),
+  overallScore: integer("overall_score").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Chat Conversations
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
@@ -123,6 +141,29 @@ export const insertUserHealthGoalSchema = createInsertSchema(userHealthGoals).om
   createdAt: true,
   updatedAt: true,
 });
+
+export type WellnessCheckin = typeof wellnessCheckins.$inferSelect;
+export type InsertWellnessCheckin = typeof wellnessCheckins.$inferInsert;
+export const insertWellnessCheckinSchema = createInsertSchema(wellnessCheckins).omit({
+  id: true,
+  createdAt: true,
+  checkinNumber: true,
+  overallScore: true,
+});
+
+// Wellness marker keys (used by frontend questions + progress comparison)
+export const wellnessMarkers = {
+  energy: "Energy & Vitality",
+  digestion: "Digestion & Appetite",
+  sleep: "Sleep Quality",
+  mood: "Mood & Emotional Balance",
+  mentalClarity: "Mental Clarity & Focus",
+  skinHealth: "Skin & Hair Health",
+  immunity: "Immunity & Resistance",
+  calmness: "Calmness & Stress Resilience",
+} as const;
+
+export type WellnessMarkerKey = keyof typeof wellnessMarkers;
 
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = typeof conversations.$inferInsert;

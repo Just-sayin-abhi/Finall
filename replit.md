@@ -42,6 +42,8 @@ Preferred communication style: Simple, everyday language.
 - `DoshaResults.tsx` — Dosha constitution breakdown display
 - `HealthGoals.tsx` — Health goal selection interface
 - `FoodList.tsx` — Tiered food recommendations with search/filter and chatbot integration
+- `WellnessCheckin.tsx` — 8-marker wellness self-rating quiz (1-5 scale per marker + optional notes), used as both baseline and follow-up re-evaluations
+- `WellnessProgress.tsx` — Comparison view: baseline vs latest with bar chart, per-marker delta cards, overall score, and trend line for 3+ check-ins
 
 **Path Aliases**:
 - `@/*` → `./client/src/*`
@@ -63,6 +65,7 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/foods` — Get filtered/tiered food recommendations
 - `POST /api/mealplan` — AI-powered 7-day meal plan generation via OpenAI (gpt-5.1); validates profile completeness, builds structured prompts, returns JSON with 7 `DayPlan` objects (5 meals each), macros, portion, dosha rationale, substitutions, hydration, weekly strategy, and optional clinician note
 - Chat integration routes under `/api/conversations`
+- `GET /api/wellness-checkins` / `POST /api/wellness-checkin` — Wellness re-evaluation check-ins; first one is baseline, subsequent ones are follow-ups for tracking improvement after following the diet plan
 
 **Meal Plan Module** (`RetailFlowLog/server/mealPlanBuilder.ts`): Isolated module with:
 - `buildSystemPrompt()` — Expert clinical nutritionist persona with strict JSON output rules
@@ -92,6 +95,7 @@ Preferred communication style: Simple, everyday language.
 - `user_profiles` — Health metrics (age, gender, heightCm, weightKg, bmi, maintenanceCalories, activityLevel, onboardingComplete flag)
 - `dosha_assessments` — Quiz results (vata/pitta/kapha scores and percentages, primary/secondary dosha, constitution type, individual responses as JSON)
 - `user_health_goals` — Selected health goal per user
+- `wellness_checkins` — Re-evaluation check-ins (8 markers scored 1-5: energy, digestion, sleep, mood, mentalClarity, skinHealth, immunity, calmness; plus auto-computed overallScore, checkinNumber, optional notes)
 - `conversations` / `messages` — Chat integration tables (from Replit AI integrations)
 
 **Migrations**: Drizzle Kit manages migrations in `RetailFlowLog/migrations/`. Config in `RetailFlowLog/drizzle.config.ts`. Push command: `npm run db:push`.

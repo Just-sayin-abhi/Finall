@@ -16,6 +16,7 @@ import {
   insertUserProfileSchema, 
   insertDoshaAssessmentSchema,
   insertUserHealthGoalSchema,
+  insertWellnessCheckinSchema,
   healthGoals,
   type HealthGoalKey 
 } from "@shared/schema";
@@ -322,6 +323,56 @@ export async function registerRoutes(
       }
 
       res.status(500).json({ message: "Failed to generate meal plan. Please try again." });
+    }
+  });
+
+  // ====== Wellness Re-evaluation Check-ins ======
+
+  // List all check-ins for the current user (oldest first; index 0 = baseline)
+  app.get("/api/wellness-checkins", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const checkins = await storage.getWellnessCheckins(userId);
+      res.json(checkins);
+    } catch (error) {
+      console.error("Error fetching wellness check-ins:", error);
+      res.status(500).json({ message: "Failed to fetch wellness check-ins" });
+    }
+  });
+
+  // Submit a new wellness check-in
+  app.post("/api/wellness-checkin", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+
+      const ratingField = z.coerce.number().int().min(1).max(5);
+      const bodySchema = z.object({
+        energy: ratingField,
+        digestion: ratingField,
+        sleep: ratingField,
+        mood: ratingField,
+        mentalClarity: ratingField,
+        skinHealth: ratingField,
+        immunity: ratingField,
+        calmness: ratingField,
+        notes: z.string().max(2000).optional().nullable(),
+      });
+
+      const parsed = bodySchema.parse(req.body);
+
+      const checkin = await storage.createWellnessCheckin({
+        userId,
+        ...parsed,
+        notes: parsed.notes ?? null,
+      });
+
+      res.json(checkin);
+    } catch (error) {
+      console.error("Error saving wellness check-in:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to save wellness check-in" });
     }
   });
 

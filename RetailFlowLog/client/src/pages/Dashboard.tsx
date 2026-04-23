@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { doshaDescriptions } from "@/lib/doshaQuestions";
 import { getBMICategory } from "@/lib/healthCalculations";
-import type { UserProfile, DoshaAssessment } from "@shared/schema";
+import type { UserProfile, DoshaAssessment, WellnessCheckin } from "@shared/schema";
 import {
   Leaf,
   Wind,
@@ -25,7 +25,9 @@ import {
   User,
   Sparkles,
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  HeartPulse,
+  RotateCw,
 } from "lucide-react";
 
 const doshaIcons = {
@@ -63,8 +65,18 @@ export default function Dashboard() {
   const { data: assessment, isLoading: assessmentLoading } = useQuery<DoshaAssessment>({
     queryKey: ["/api/dosha-assessment"],
   });
-  
+
+  const { data: wellnessCheckins = [] } = useQuery<WellnessCheckin[]>({
+    queryKey: ["/api/wellness-checkins"],
+  });
+
   const isLoading = authLoading || profileLoading || assessmentLoading;
+  const hasBaseline = wellnessCheckins.length > 0;
+  const baselineCheckin = wellnessCheckins[0];
+  const latestCheckin = wellnessCheckins[wellnessCheckins.length - 1];
+  const overallDelta = wellnessCheckins.length >= 2
+    ? latestCheckin.overallScore - baselineCheckin.overallScore
+    : 0;
   
   const needsOnboarding = !profile?.onboardingComplete;
   const needsAssessment = !assessment;
@@ -357,6 +369,73 @@ export default function Dashboard() {
           </Card>
         </motion.div>
         
+        {/* Wellness Re-evaluation Card */}
+        {assessment && (
+          <motion.div variants={itemVariants} className="mb-8">
+            <Card className="overflow-hidden relative group bg-gradient-to-br from-primary/5 via-card/40 to-accent/5 backdrop-blur-md border-primary/20">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full -mr-24 -mt-24 blur-3xl transition-all group-hover:bg-primary/20" />
+              <CardHeader className="relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
+                      <HeartPulse className="w-7 h-7 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="font-serif text-2xl">Wellness Re-evaluation</CardTitle>
+                      <CardDescription className="text-base">
+                        {!hasBaseline
+                          ? "Track how your health improves after following your plan"
+                          : wellnessCheckins.length === 1
+                          ? "Baseline saved — re-evaluate after 2-4 weeks of following your plan"
+                          : `${wellnessCheckins.length} check-ins recorded — keep tracking your progress`}
+                      </CardDescription>
+                    </div>
+                  </div>
+
+                  {hasBaseline && wellnessCheckins.length >= 2 && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${overallDelta > 0 ? "bg-green-500/15 text-green-600 dark:text-green-400" : overallDelta < 0 ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                      <TrendingUp className="w-5 h-5" />
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wider opacity-80">Overall</div>
+                        <div className="text-lg font-bold">
+                          {overallDelta > 0 ? "+" : ""}{overallDelta} pts
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="relative">
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/wellness-checkin">
+                    <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-wellness-checkin">
+                      {!hasBaseline ? (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Take Baseline Check-in
+                        </>
+                      ) : (
+                        <>
+                          <RotateCw className="w-4 h-4" />
+                          New Check-in
+                        </>
+                      )}
+                    </Button>
+                  </Link>
+                  {hasBaseline && (
+                    <Link href="/wellness-progress">
+                      <Button variant="outline" className="gap-2" data-testid="button-wellness-progress">
+                        View Progress
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Dosha Info Cards (if assessed) */}
         {assessment && primaryDosha && (
           <motion.div variants={itemVariants} className="mt-12">
