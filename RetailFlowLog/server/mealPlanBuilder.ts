@@ -10,9 +10,12 @@
 
 import OpenAI from "openai";
 
+// Supports both Replit AI integration env vars AND a standard local OPENAI_API_KEY.
+// On Replit the AI_INTEGRATIONS_* vars are present and used; locally, set OPENAI_API_KEY
+// in your .env and the SDK falls back to the default OpenAI base URL.
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 // ---------------------------------------------------------------------------
