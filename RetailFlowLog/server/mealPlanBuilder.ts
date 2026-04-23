@@ -236,12 +236,19 @@ export async function callOpenAIForMealPlan(
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    temperature: 0.3,
-    max_completion_tokens: 8000,
-  });
+    max_completion_tokens: 16000,
+    reasoning_effort: "minimal",
+  } as any);
 
   const raw = response.choices[0]?.message?.content;
-  if (!raw) throw new Error("OpenAI returned an empty response.");
+  if (!raw) {
+    const finishReason = response.choices[0]?.finish_reason;
+    const usage = response.usage;
+    throw new Error(
+      `OpenAI returned empty content (finish_reason=${finishReason}, ` +
+      `tokens used=${JSON.stringify(usage)}). Try regenerating.`
+    );
+  }
   return raw;
 }
 
