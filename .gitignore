@@ -1,0 +1,29 @@
+# Environment variables - never commit these
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+RetailFlowLog/node_modules/
+
+# Build output
+dist/
+build/
+RetailFlowLog/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Zip files
+*.zip
+
+# Replit-specific
+.replit_integration_files/
+.local/
+.config/
