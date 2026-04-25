@@ -31,6 +31,9 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  authProvider: varchar("auth_provider", { length: 20 }).default("email"),
+  passwordSalt: varchar("password_salt"),
+  passwordHash: varchar("password_hash"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -95,6 +98,17 @@ export const wellnessCheckins = pgTable("wellness_checkins", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Persisted meal plans (one per user — upserted on each generation)
+export const mealPlans = pgTable("meal_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  goal: varchar("goal", { length: 40 }).notNull().default("balanced"),
+  planData: jsonb("plan_data").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow(),
+}, (t) => [index("meal_plans_user_goal_idx").on(t.userId, t.goal)]);
+
+export type MealPlan = typeof mealPlans.$inferSelect;
 
 // Chat Conversations
 export const conversations = pgTable("conversations", {

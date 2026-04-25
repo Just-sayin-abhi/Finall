@@ -35,16 +35,16 @@ const goalIcons: Record<HealthGoalKey, typeof Heart> = {
 };
 
 const goalColors: Record<HealthGoalKey, string> = {
-  heart_health: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
-  gut_health: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-  inflammation: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
-  liver_function: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
-  immunity: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  diabetes: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-  skin_hair: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
-  weight_management: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
-  sleep: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-  energy: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+  heart_health: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500",
+  gut_health: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500",
+  inflammation: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500",
+  liver_function: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500",
+  immunity: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500",
+  diabetes: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500",
+  skin_hair: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500",
+  weight_management: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500",
+  sleep: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500",
+  energy: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500",
 };
 
 const goalDescriptions: Record<HealthGoalKey, string> = {
@@ -132,8 +132,8 @@ export default function HealthGoals() {
                 onClick={() => setSelectedGoal(key)}
                 className={`group p-6 rounded-xl border-2 text-left transition-all duration-200 hover-elevate animate-fade-in-up ${
                   isSelected
-                    ? `${goalColors[key]} border-current`
-                    : "border-border hover:border-muted-foreground/30"
+                    ? `${goalColors[key]}`
+                    : "bg-gray-50/80 dark:bg-gray-900/40 border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-400"
                 }`}
                 style={{ animationDelay: `${index * 0.05}s` }}
                 data-testid={`goal-${key}`}

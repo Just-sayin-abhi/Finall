@@ -310,9 +310,15 @@ export async function registerRoutes(
       // ---- Parse & validate response ----
       const mealPlan = parseMealPlanResponse(rawResponse);
 
+      // ---- Persist for the user (non-fatal) ----
+      const goalKey = activeGoal ?? "balanced";
+      storage.saveMealPlan(userId, goalKey, mealPlan).catch((err) =>
+        console.error("Failed to save meal plan:", err?.message)
+      );
+
       res.json(mealPlan);
     } catch (error: any) {
-      console.error("Error generating meal plan:", error);
+      console.error("Error generating meal plan:", error?.status, error?.code, error?.message);
 
       // Surface a meaningful error for API key / quota issues
       if (error?.status === 401 || error?.code === "invalid_api_key") {
@@ -323,6 +329,19 @@ export async function registerRoutes(
       }
 
       res.status(500).json({ message: "Failed to generate meal plan. Please try again." });
+    }
+  });
+
+  // Retrieve the user's saved meal plan for a specific goal
+  app.get("/api/mealplan/saved", isAuthenticated, async (req: any, res) => {
+    try {
+      const goal = (req.query.goal as string) || "balanced";
+      const plan = await storage.getMealPlan(req.userId, goal);
+      if (!plan) return res.status(404).json({ message: "No saved meal plan." });
+      res.json(plan);
+    } catch (error) {
+      console.error("Error fetching saved meal plan:", error);
+      res.status(500).json({ message: "Failed to fetch saved meal plan." });
     }
   });
 

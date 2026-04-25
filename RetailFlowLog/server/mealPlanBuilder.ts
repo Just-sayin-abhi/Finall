@@ -10,13 +10,15 @@
 
 import OpenAI from "openai";
 
-// Supports both Replit AI integration env vars AND a standard local OPENAI_API_KEY.
-// On Replit the AI_INTEGRATIONS_* vars are present and used; locally, set OPENAI_API_KEY
-// in your .env and the SDK falls back to the default OpenAI base URL.
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+// Lazily create the client so env vars are read after dotenv has loaded them.
+function getOpenAIClient() {
+  const key = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  console.log("[mealPlanBuilder] OPENAI_API_KEY present:", !!key, "prefix:", key?.slice(0, 10));
+  return new OpenAI({
+    apiKey: key,
+    baseURL: process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -233,15 +235,16 @@ export async function callOpenAIForMealPlan(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
+  const openai = getOpenAIClient();
   const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    max_completion_tokens: 16000,
-    reasoning_effort: "minimal",
-  } as any);
+    max_completion_tokens: 14000,
+    response_format: { type: "json_object" },
+  });
 
   const raw = response.choices[0]?.message?.content;
   if (!raw) {

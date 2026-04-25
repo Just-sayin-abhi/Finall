@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useLocation } from "wouter";
 import { 
   Leaf, 
   Heart, 
@@ -13,40 +14,106 @@ import {
   CheckCircle,
   Star,
   Users,
-  ChevronDown
+  ChevronDown,
+  X
 } from "lucide-react";
 
 export default function Landing() {
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [authTab, setAuthTab] = useState<"login" | "signup">("signup");
+
+  // Login state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Signup state
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [signupFirstName, setSignupFirstName] = useState("");
+  const [signupLastName, setSignupLastName] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+
+  const canSignup = useMemo(() => {
+    return (
+      signupEmail.trim().length > 0 &&
+      signupPassword.length >= 8 &&
+      signupConfirmPassword.length > 0 &&
+      signupPassword === signupConfirmPassword
+    );
+  }, [signupEmail, signupPassword, signupConfirmPassword]);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const openAuth = (tab: "login" | "signup" = "signup") => {
+    setAuthTab(tab);
+    setShowAuthDialog(true);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!loginEmail.trim() || !loginPassword) return;
+    setLoginError(null);
+    setLoginLoading(true);
 
-    setIsLoading(true);
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch("/api/login/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       });
 
       if (response.ok) {
         window.location.href = "/";
-      } else {
-        alert("Login failed. Please try again.");
+        return;
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("An error occurred. Please try again.");
+
+      const payload = await response.json().catch(() => null);
+      setLoginError(payload?.message || "Invalid credentials");
+    } catch (err) {
+      console.error("Login error:", err);
+      setLoginError("Could not login");
     } finally {
-      setIsLoading(false);
+      setLoginLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSignup) return;
+    setSignupError(null);
+    setSignupLoading(true);
+
+    try {
+      const response = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: signupEmail.trim(),
+          password: signupPassword,
+          firstName: signupFirstName.trim() || undefined,
+          lastName: signupLastName.trim() || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        window.location.href = "/";
+        return;
+      }
+
+      const payload = await response.json().catch(() => null);
+      setSignupError(payload?.message || "Could not create account");
+    } catch (err) {
+      console.error("Signup error:", err);
+      setSignupError("Could not create account");
+    } finally {
+      setSignupLoading(false);
     }
   };
 
@@ -86,7 +153,7 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <Button 
-                onClick={() => setShowLoginDialog(true)}
+                onClick={() => openAuth("signup")}
                 data-testid="button-login"
               >
                 Get Started
@@ -128,7 +195,7 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 className="text-base px-8 gap-2" 
-                onClick={() => setShowLoginDialog(true)}
+                onClick={() => openAuth("signup")}
                 data-testid="button-hero-cta"
               >
                 Start Your Journey
@@ -365,7 +432,7 @@ export default function Landing() {
             size="lg" 
             variant="secondary" 
             className="text-base px-8 gap-2"
-            onClick={() => setShowLoginDialog(true)}
+            onClick={() => openAuth("signup")}
             data-testid="button-cta-signup"
           >
             Get Started Free
@@ -394,33 +461,220 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-login">
-          <DialogHeader>
-            <DialogTitle className="font-serif">Join NIVARANA</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email Address</label>
-              <Input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                data-testid="input-email"
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isLoading || !email.trim()}
-              data-testid="button-login-submit"
+      {/* Auth Dialog – matches provided mockup design */}
+      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
+        <DialogContent
+          className="sm:max-w-[480px] p-0 gap-0 overflow-hidden border-0"
+          data-testid="dialog-auth"
+          /* hide the default radix close button – we render our own */
+          style={{ boxShadow: "0 25px 60px -12px rgba(0,0,0,0.35)" }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setShowAuthDialog(false)}
+            className="absolute right-4 top-4 z-10 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+            aria-label="Close"
+            data-testid="button-auth-close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Title */}
+          <div className="pt-8 pb-2 px-8 text-center">
+            <h2
+              className="font-serif text-2xl font-bold tracking-tight"
+              data-testid="auth-title"
             >
-              {isLoading ? "Logging in..." : "Get Started"}
-            </Button>
-          </form>
+              {authTab === "login" ? "Welcome Back" : "Create Your Account"}
+            </h2>
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="px-8 pt-4 pb-2">
+            <div
+              className="grid grid-cols-2 rounded-lg overflow-hidden border"
+              style={{ borderColor: "#2d6a4f" }}
+            >
+              <button
+                onClick={() => setAuthTab("login")}
+                className="py-2.5 text-sm font-semibold transition-colors"
+                style={
+                  authTab === "login"
+                    ? { backgroundColor: "#2d6a4f", color: "#fff" }
+                    : { backgroundColor: "transparent", color: "#2d6a4f" }
+                }
+                data-testid="tab-login"
+              >
+                Log In
+              </button>
+              <button
+                onClick={() => setAuthTab("signup")}
+                className="py-2.5 text-sm font-semibold transition-colors"
+                style={
+                  authTab === "signup"
+                    ? { backgroundColor: "#2d6a4f", color: "#fff" }
+                    : { backgroundColor: "transparent", color: "#2d6a4f" }
+                }
+                data-testid="tab-signup"
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
+
+          {/* ──── LOGIN FORM ──── */}
+          {authTab === "login" && (
+            <form onSubmit={handleLogin} className="px-8 pt-4 pb-8 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">Email Address</label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  disabled={loginLoading}
+                  className="rounded-lg"
+                  data-testid="input-login-email"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">Password</label>
+                <Input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  disabled={loginLoading}
+                  className="rounded-lg"
+                  data-testid="input-login-password"
+                />
+              </div>
+
+              {loginError && (
+                <p className="text-sm text-destructive">{loginError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loginLoading || !loginEmail.trim() || !loginPassword}
+                className="w-full py-3 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: "#a4b8a4" }}
+                data-testid="button-login-submit"
+              >
+                {loginLoading ? "Logging in..." : "Log In"}
+              </button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                New here?{" "}
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("signup")}
+                  className="underline font-medium hover:text-foreground transition-colors"
+                  style={{ color: "#2d6a4f" }}
+                  data-testid="link-switch-to-signup"
+                >
+                  Create an account
+                </button>
+              </p>
+            </form>
+          )}
+
+          {/* ──── SIGNUP FORM ──── */}
+          {authTab === "signup" && (
+            <form onSubmit={handleSignup} className="px-8 pt-4 pb-8 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold">First Name</label>
+                  <Input
+                    placeholder="First name"
+                    value={signupFirstName}
+                    onChange={(e) => setSignupFirstName(e.target.value)}
+                    disabled={signupLoading}
+                    className="rounded-lg"
+                    data-testid="input-signup-firstname"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold">Last Name</label>
+                  <Input
+                    placeholder="Last name"
+                    value={signupLastName}
+                    onChange={(e) => setSignupLastName(e.target.value)}
+                    disabled={signupLoading}
+                    className="rounded-lg"
+                    data-testid="input-signup-lastname"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">Email Address</label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  disabled={signupLoading}
+                  className="rounded-lg"
+                  data-testid="input-signup-email"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">Password</label>
+                <Input
+                  type="password"
+                  placeholder="At least 8 characters"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  disabled={signupLoading}
+                  className="rounded-lg"
+                  data-testid="input-signup-password"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">Confirm Password</label>
+                <Input
+                  type="password"
+                  placeholder="Re-enter password"
+                  value={signupConfirmPassword}
+                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  disabled={signupLoading}
+                  className="rounded-lg"
+                  data-testid="input-signup-confirm"
+                />
+              </div>
+
+              {signupError && (
+                <p className="text-sm text-destructive">{signupError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={!canSignup || signupLoading}
+                className="w-full py-3 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: "#2d6a4f" }}
+                data-testid="button-signup-submit"
+              >
+                {signupLoading ? "Creating account..." : "Create Account"}
+              </button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("login")}
+                  className="underline font-medium hover:text-foreground transition-colors"
+                  style={{ color: "#2d6a4f" }}
+                  data-testid="link-switch-to-login"
+                >
+                  Log in
+                </button>
+              </p>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

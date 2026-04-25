@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -109,225 +109,296 @@ function downloadMealPlanPDF(plan: AIMealPlan) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 16;
-  const contentW = pageW - margin * 2;
+  const M = 18;           // page margin
+  const cW = pageW - M * 2; // content width = 174mm
+  const FOOTER_H = 14;    // reserved at bottom for footer
+  const BODY_MAX = pageH - M - FOOTER_H;
 
-  const GREEN = [46, 125, 50] as [number, number, number];
-  const DARK = [30, 30, 30] as [number, number, number];
-  const MUTED = [100, 100, 100] as [number, number, number];
-  const LIGHT_BG = [245, 245, 240] as [number, number, number];
-  const MEAL_COLORS: Record<string, [number, number, number]> = {
-    breakfast:     [255, 193, 7],
-    morning_snack: [76, 175, 80],
-    lunch:         [33, 150, 243],
-    evening_snack: [255, 152, 0],
-    dinner:        [103, 58, 183],
+  // ── Palette ──────────────────────────────────────────────────────────────
+  const C = {
+    green:      [39, 110, 53]  as [number,number,number],
+    greenLight: [220, 237, 222] as [number,number,number],
+    dark:       [28,  28,  28]  as [number,number,number],
+    mid:        [80,  80,  80]  as [number,number,number],
+    muted:      [140, 140, 140] as [number,number,number],
+    pageBg:     [252, 252, 250] as [number,number,number],
+    cardBg:     [255, 255, 255] as [number,number,number],
+    rule:       [220, 220, 215] as [number,number,number],
   };
-  const MEAL_LABELS: Record<string, string> = {
-    breakfast: "Breakfast",
+
+  const MEAL_ACCENT: Record<string, [number,number,number]> = {
+    breakfast:     [234, 170,  30],
+    morning_snack: [52,  168, 104],
+    lunch:         [30,  140, 220],
+    evening_snack: [220, 120,  30],
+    dinner:        [120,  70, 200],
+  };
+  const MEAL_LABEL: Record<string, string> = {
+    breakfast:     "Breakfast",
     morning_snack: "Morning Snack",
-    lunch: "Lunch",
+    lunch:         "Lunch",
     evening_snack: "Evening Snack",
-    dinner: "Dinner",
+    dinner:        "Dinner",
   };
 
-  let y = margin;
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  let y = 0;
 
-  const checkPage = (neededHeight: number) => {
-    if (y + neededHeight > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
-  };
+  const LH = (size: number) => size * 0.38; // line-height in mm for a given pt size
 
-  const drawBox = (x: number, boxY: number, w: number, h: number, color: [number, number, number], radius = 3) => {
-    doc.setFillColor(...color);
-    doc.roundedRect(x, boxY, w, h, radius, radius, "F");
-  };
-
-  const wrapText = (text: string, maxWidth: number, fontSize: number): string[] => {
-    doc.setFontSize(fontSize);
-    return doc.splitTextToSize(text, maxWidth);
-  };
-
-  // ---- Cover page ----
-  drawBox(0, 0, pageW, 48, GREEN);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(24);
-  doc.text("NIVARANA", margin, 20);
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "normal");
-  doc.text("Your 7-Day Ayurvedic Meal Plan", margin, 29);
-  doc.setFontSize(9);
-  doc.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, margin, 38);
-
-  y = 58;
-
-  // Week summary box
-  drawBox(margin, y, contentW, 18, LIGHT_BG);
-  doc.setTextColor(...DARK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("PLAN CONTEXT", margin + 4, y + 6);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  const summaryLines = wrapText(plan.week_summary, contentW - 8, 9);
-  doc.text(summaryLines, margin + 4, y + 12);
-  y += 18 + Math.max(0, (summaryLines.length - 1) * 4) + 5;
-
-  // Hydration + strategy
-  const halfW = (contentW - 4) / 2;
-  drawBox(margin, y, halfW, 28, [227, 242, 253]);
-  doc.setTextColor(21, 101, 192);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.text("HYDRATION", margin + 4, y + 6);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...DARK);
-  const hydLines = wrapText(plan.hydration, halfW - 8, 8);
-  doc.text(hydLines.slice(0, 3), margin + 4, y + 11);
-
-  drawBox(margin + halfW + 4, y, halfW, 28, [232, 245, 233]);
-  doc.setTextColor(...GREEN);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.text("WEEKLY STRATEGY", margin + halfW + 8, y + 6);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...DARK);
-  const stratLines = wrapText(plan.weekly_strategy, halfW - 8, 8);
-  doc.text(stratLines.slice(0, 3), margin + halfW + 8, y + 11);
-  y += 34;
-
-  if (plan.clinician_note) {
-    drawBox(margin, y, contentW, 16, [255, 248, 225]);
-    doc.setTextColor(230, 81, 0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.text("CLINICAL NOTE", margin + 4, y + 6);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...DARK);
-    const noteLines = wrapText(plan.clinician_note, contentW - 8, 8);
-    doc.text(noteLines.slice(0, 1), margin + 4, y + 12);
-    y += 22;
+  function wrap(text: string, width: number, size: number): string[] {
+    doc.setFontSize(size);
+    return doc.splitTextToSize(text || "", width);
   }
 
-  // ---- Day pages ----
-  const mealOrder = ["breakfast", "morning_snack", "lunch", "evening_snack", "dinner"] as const;
+  function fillRect(x: number, ry: number, w: number, h: number, color: [number,number,number], r = 0) {
+    doc.setFillColor(...color);
+    if (r > 0) doc.roundedRect(x, ry, w, h, r, r, "F");
+    else doc.rect(x, ry, w, h, "F");
+  }
+
+  function hRule(ry: number) {
+    doc.setDrawColor(...C.rule);
+    doc.setLineWidth(0.2);
+    doc.line(M, ry, M + cW, ry);
+  }
+
+  function footer(pageNum: number) {
+    const fy = pageH - 9;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.muted);
+    doc.text("NIVARANA  ·  Personalised Ayurvedic Nutrition  ·  Not a substitute for clinical advice.", M, fy);
+    doc.text(`${pageNum}`, pageW - M, fy, { align: "right" });
+  }
+
+  function needPage(needed: number) {
+    if (y + needed > BODY_MAX) {
+      footer(doc.getNumberOfPages());
+      doc.addPage();
+      fillRect(0, 0, pageW, pageH, C.pageBg);
+      y = M;
+    }
+  }
+
+  // ── COVER PAGE ────────────────────────────────────────────────────────────
+  fillRect(0, 0, pageW, pageH, C.pageBg);
+
+  // Hero band
+  fillRect(0, 0, pageW, 68, C.green);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(32);
+  doc.text("NIVARANA", M, 30);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(13);
+  doc.text("7-Day Personalised Ayurvedic Meal Plan", M, 43);
+
+  doc.setFontSize(9);
+  doc.setTextColor(200, 230, 200);
+  doc.text(
+    `Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`,
+    M, 56
+  );
+
+  y = 82;
+
+  // Section label helper
+  function sectionLabel(label: string) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.green);
+    const chars = label.split("").join(" ");
+    doc.text(chars.toUpperCase(), M, y);
+    y += 5;
+    hRule(y);
+    y += 5;
+  }
+
+  // Week summary
+  sectionLabel("Plan Overview");
+  const summLines = wrap(plan.week_summary, cW, 10);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.dark);
+  doc.text(summLines, M, y);
+  y += summLines.length * LH(10) + 10;
+
+  // Hydration + Strategy side by side
+  const colW2 = (cW - 6) / 2;
+
+  fillRect(M, y, colW2, 1, C.greenLight); // will size dynamically
+  const hydLines  = wrap(plan.hydration,       colW2 - 8, 9);
+  const stratLines = wrap(plan.weekly_strategy, colW2 - 8, 9);
+  const boxH = Math.max(hydLines.length, stratLines.length) * LH(9) + 22;
+
+  fillRect(M,           y, colW2, boxH, C.greenLight, 3);
+  fillRect(M + colW2 + 6, y, colW2, boxH, [232, 245, 233] as [number,number,number], 3);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.green);
+  doc.text("HYDRATION", M + 5, y + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...C.dark);
+  doc.text(hydLines, M + 5, y + 15);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.green);
+  doc.text("WEEKLY STRATEGY", M + colW2 + 11, y + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...C.dark);
+  doc.text(stratLines, M + colW2 + 11, y + 15);
+
+  y += boxH + 10;
+
+  if (plan.clinician_note) {
+    const noteLines = wrap(plan.clinician_note, cW - 10, 9);
+    const noteH = noteLines.length * LH(9) + 18;
+    fillRect(M, y, cW, noteH, [255, 248, 225] as [number,number,number], 3);
+    fillRect(M, y, 3, noteH, [230, 81, 0] as [number,number,number], 1);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 60, 0);
+    doc.text("CLINICAL NOTE", M + 7, y + 8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.dark);
+    doc.text(noteLines, M + 7, y + 15);
+    y += noteH + 8;
+  }
+
+  footer(1);
+
+  // ── DAY PAGES ─────────────────────────────────────────────────────────────
+  const mealOrder = ["breakfast","morning_snack","lunch","evening_snack","dinner"] as const;
 
   for (const dayPlan of plan.days) {
     doc.addPage();
-    y = margin;
+    fillRect(0, 0, pageW, pageH, C.pageBg);
+    y = 0;
 
-    // Day header bar
-    drawBox(0, 0, pageW, 22, GREEN);
+    // Day header
+    fillRect(0, 0, pageW, 24, C.green);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(`Day ${dayPlan.day} — ${dayPlan.day_name}`, margin, 15);
-    y = 30;
+    doc.setFontSize(18);
+    doc.text(`Day ${dayPlan.day}`, M, 15);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(190, 230, 195);
+    doc.text(dayPlan.day_name, M + 28, 15);
+    y = 34;
 
     for (const mealKey of mealOrder) {
       const meal = dayPlan.meals[mealKey];
       if (!meal) continue;
 
-      const mealColor = MEAL_COLORS[mealKey] || [100, 100, 100];
-      const mealLabel = MEAL_LABELS[mealKey] || mealKey;
+      const accent = MEAL_ACCENT[mealKey] ?? C.green;
+      const label  = MEAL_LABEL[mealKey]  ?? mealKey;
 
-      // Estimate height needed
-      const dishNameLines = wrapText(meal.dish_name, contentW - 30, 10);
-      const whyLines = wrapText(meal.why, contentW - 8, 8);
-      const ingText = meal.ingredients.join(", ");
-      const ingLines = wrapText(ingText, contentW - 8, 8);
-      const estHeight = 8 + dishNameLines.length * 5 + 14 + whyLines.length * 4 + ingLines.length * 4 + 14;
+      // Pre-calculate all wrapped lines
+      const nameLines = wrap(meal.dish_name,                    cW - 10,   12);
+      const ingLines  = wrap(meal.ingredients.join(", "),       cW - 10,    9);
+      const whyLines  = wrap(meal.why,                          cW - 10,    9);
+      const portLine  = `${meal.portion}  ·  ${meal.macros.calories}`;
 
-      checkPage(estHeight);
+      const cardH =
+        3 +                              // accent bar
+        6 +                              // label pill row
+        4 +                              // gap
+        nameLines.length  * LH(12) + 2 + // dish name
+        LH(9) + 3 +                      // portion + cal
+        9 +                              // macros row
+        6 +                              // "Ingredients" label
+        ingLines.length   * LH(9) + 5 +  // ingredients
+        6 +                              // "Why" label
+        whyLines.length   * LH(9) + 10;  // why + bottom padding
 
-      // Meal colour strip
-      drawBox(margin, y, 4, estHeight - 4, mealColor, 2);
+      needPage(cardH);
+
+      const cx = M;
+      const cy = y;
+
+      // Card background
+      fillRect(cx, cy, cW, cardH, C.cardBg, 4);
+
+      // Accent bar at top of card
+      fillRect(cx, cy, cW, 3, accent, 4);
 
       // Meal label pill
-      drawBox(margin + 6, y, 35, 6, mealColor);
-      doc.setTextColor(255, 255, 255);
+      const pillY = cy + 7;
+      fillRect(cx + 8, pillY - 4, 32, 6, accent, 3);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(6);
-      doc.text(mealLabel.toUpperCase(), margin + 8, y + 4.5);
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.text(label.toUpperCase(), cx + 10, pillY);
 
-      // Calories badge
-      doc.setFillColor(240, 240, 240);
-      doc.roundedRect(pageW - margin - 26, y, 26, 6, 2, 2, "F");
-      doc.setTextColor(...MUTED);
-      doc.setFontSize(6.5);
-      doc.text(meal.macros.calories, pageW - margin - 23, y + 4.5);
-
-      y += 8;
+      let iy = pillY + 8;
 
       // Dish name
-      doc.setTextColor(...DARK);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(dishNameLines, margin + 6, y);
-      y += dishNameLines.length * 5 + 2;
+      doc.setFontSize(12);
+      doc.setTextColor(...C.dark);
+      doc.text(nameLines, cx + 8, iy);
+      iy += nameLines.length * LH(12) + 3;
 
-      // Portion
+      // Portion + calories
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
-      doc.setTextColor(...MUTED);
-      doc.text(`Portion: ${meal.portion}`, margin + 6, y);
-      y += 5;
+      doc.setFontSize(9);
+      doc.setTextColor(...C.mid);
+      doc.text(portLine, cx + 8, iy);
+      iy += LH(9) + 5;
 
-      // Macros row
-      const macroItems = [
-        `Protein: ${meal.macros.protein}`,
-        `Carbs: ${meal.macros.carbs}`,
-        `Fat: ${meal.macros.fat}`,
+      // Macro pills
+      const macros = [
+        { label: "Protein", value: meal.macros.protein,  bg: [232, 244, 254] as [number,number,number] },
+        { label: "Carbs",   value: meal.macros.carbs,    bg: [255, 248, 225] as [number,number,number] },
+        { label: "Fat",     value: meal.macros.fat,      bg: [254, 235, 235] as [number,number,number] },
       ];
-      const colW = contentW / 3;
-      macroItems.forEach((m, i) => {
-        const colors: [number, number, number][] = [[227,242,253], [255,248,225], [255,235,238]];
-        drawBox(margin + 6 + i * colW, y, colW - 3, 7, colors[i], 2);
+      const pillW = (cW - 28) / 3;
+      macros.forEach(({ label: ml, value, bg }, i) => {
+        const px = cx + 8 + i * (pillW + 4);
+        fillRect(px, iy, pillW, 7.5, bg, 2);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(...DARK);
-        doc.text(m, margin + 8 + i * colW, y + 5);
+        doc.setFontSize(7.5);
+        doc.setTextColor(...C.dark);
+        doc.text(`${ml}  ${value}`, px + 3, iy + 5.3);
       });
-      y += 10;
+      iy += 12;
 
       // Ingredients
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(...GREEN);
-      doc.text("Ingredients:", margin + 6, y);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...DARK);
       doc.setFontSize(8);
-      const ingTextFull = meal.ingredients.join(", ");
-      const wrappedIng = wrapText(ingTextFull, contentW - 8, 8);
-      doc.text(wrappedIng, margin + 6, y + 4);
-      y += 4 + wrappedIng.length * 4 + 2;
+      doc.setTextColor(...C.green);
+      doc.text("Ingredients", cx + 8, iy);
+      iy += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.mid);
+      doc.text(ingLines, cx + 8, iy);
+      iy += ingLines.length * LH(9) + 6;
 
-      // Why
+      // Why it works
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(...GREEN);
-      doc.text("Why this works:", margin + 6, y);
+      doc.setFontSize(8);
+      doc.setTextColor(...C.green);
+      doc.text("Why it works", cx + 8, iy);
+      iy += 5;
       doc.setFont("helvetica", "italic");
-      doc.setTextColor(...MUTED);
-      doc.setFontSize(7.5);
-      const wrappedWhy = wrapText(meal.why, contentW - 8, 7.5);
-      doc.text(wrappedWhy, margin + 6, y + 4);
-      y += 4 + wrappedWhy.length * 4 + 8;
+      doc.setFontSize(9);
+      doc.setTextColor(...C.muted);
+      doc.text(whyLines, cx + 8, iy);
+
+      y += cardH + 6; // 6mm gap between cards
     }
 
-    // Page footer
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...MUTED);
-    doc.text("NIVARANA — Personalised Ayurvedic Nutrition. Not a substitute for clinical advice.", margin, pageH - 8);
-    doc.text(`Page ${doc.getNumberOfPages()}`, pageW - margin - 12, pageH - 8);
+    footer(doc.getNumberOfPages());
   }
 
   doc.save("nivarana-7-day-meal-plan.pdf");
@@ -931,6 +1002,16 @@ export default function FoodList() {
 
   const { toast } = useToast();
 
+  // Load the saved meal plan for the current goal whenever the goal changes
+  useEffect(() => {
+    setMealPlan(null);
+    const goal = goalParam ?? "balanced";
+    fetch(`/api/mealplan/saved?goal=${goal}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setMealPlan(data as AIMealPlan); })
+      .catch(() => {});
+  }, [goalParam]);
+
   const { data: tieredFoods, isLoading } = useQuery<TieredFoods>({
     queryKey: ["/api/foods/filtered", mode, goalParam],
     queryFn: async () => {
@@ -1107,12 +1188,12 @@ export default function FoodList() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={handleOpenPrefs}
+                    onClick={() => mealPlan ? setShowMealDialog(true) : handleOpenPrefs()}
                     className="rounded-2xl shadow-lg shadow-primary/20 gap-2 h-11 px-6 whitespace-nowrap hidden md:flex"
                     data-testid="btn-generate-mealplan"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Generate Meal Plan
+                    {mealPlan ? "View Meal Plan" : "Generate Meal Plan"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-background/95 backdrop-blur-md border-border/40 max-w-xs p-3 rounded-xl">
@@ -1192,7 +1273,7 @@ export default function FoodList() {
 
         {/* Mobile FAB */}
         <div className="fixed bottom-6 right-6 md:hidden z-40">
-          <Button onClick={handleOpenPrefs} className="rounded-full w-14 h-14 shadow-2xl shadow-primary/40 p-0">
+          <Button onClick={() => mealPlan ? setShowMealDialog(true) : handleOpenPrefs()} className="rounded-full w-14 h-14 shadow-2xl shadow-primary/40 p-0">
             <Sparkles className="w-6 h-6" />
           </Button>
         </div>
@@ -1258,7 +1339,7 @@ export default function FoodList() {
             if (!open) { setSelectedMeal(null); setSelectedDay(0); }
           }}
         >
-          <DialogContent className="sm:max-w-lg bg-background/95 backdrop-blur-2xl border-border/40 p-0 overflow-hidden max-h-[92vh]">
+          <DialogContent className="sm:max-w-lg bg-background/95 backdrop-blur-2xl border-border/40 p-0 flex flex-col max-h-[92vh]">
             {/* Header */}
             <div className="p-5 border-b border-border/40 bg-muted/20 flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner flex-shrink-0">
@@ -1282,7 +1363,8 @@ export default function FoodList() {
 
             {/* Day selector tabs — hidden while viewing a meal detail */}
             {mealPlan && selectedMeal === null && (
-              <div className="px-4 pt-3 pb-1 flex gap-1.5 overflow-x-auto scrollbar-hide border-b border-border/30 bg-muted/10">
+              <div className="overflow-x-auto scrollbar-hide border-b border-border/30 bg-muted/10">
+                <div className="px-4 pt-3 pb-1 flex gap-1.5 w-max min-w-full">
                 {mealPlan.days.map((d, idx) => (
                   <button
                     key={d.day}
@@ -1296,11 +1378,12 @@ export default function FoodList() {
                     {d.day_name.slice(0, 3)}
                   </button>
                 ))}
+                </div>
               </div>
             )}
 
             {/* Scrollable body */}
-            <div className="overflow-y-auto max-h-[calc(92vh-185px)] bg-background/20">
+            <div className="overflow-y-auto flex-1 min-h-0 bg-background/20">
               {mealPlan && (
                 <AnimatePresence mode="wait">
                   {selectedMeal === null ? (

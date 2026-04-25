@@ -1,10 +1,11 @@
-import { 
-  users, 
-  userProfiles, 
-  doshaAssessments, 
+import {
+  users,
+  userProfiles,
+  doshaAssessments,
   userHealthGoals,
   wellnessCheckins,
-  type User, 
+  mealPlans,
+  type User,
   type UpsertUser,
   type UserProfile,
   type InsertUserProfile,
@@ -16,10 +17,11 @@ import {
   type InsertWellnessCheckin,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   getProfile(userId: string): Promise<UserProfile | undefined>;
@@ -34,11 +36,19 @@ export interface IStorage {
 
   getWellnessCheckins(userId: string): Promise<WellnessCheckin[]>;
   createWellnessCheckin(checkin: InsertWellnessCheckin): Promise<WellnessCheckin>;
+
+  getMealPlan(userId: string, goal: string): Promise<any | undefined>;
+  saveMealPlan(userId: string, goal: string, planData: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email));
     return result[0];
   }
 
@@ -140,6 +150,24 @@ export class DatabaseStorage implements IStorage {
       .values({ ...checkin, checkinNumber, overallScore })
       .returning();
     return newCheckin;
+  }
+
+  async getMealPlan(userId: string, goal: string): Promise<any | undefined> {
+    const result = await db.select().from(mealPlans)
+      .where(and(eq(mealPlans.userId, userId), eq(mealPlans.goal, goal)));
+    return result[0]?.planData;
+  }
+
+  async saveMealPlan(userId: string, goal: string, planData: any): Promise<void> {
+    const existing = await db.select({ id: mealPlans.id }).from(mealPlans)
+      .where(and(eq(mealPlans.userId, userId), eq(mealPlans.goal, goal)));
+    if (existing.length > 0) {
+      await db.update(mealPlans)
+        .set({ planData, generatedAt: new Date() })
+        .where(and(eq(mealPlans.userId, userId), eq(mealPlans.goal, goal)));
+    } else {
+      await db.insert(mealPlans).values({ userId, goal, planData });
+    }
   }
 }
 
