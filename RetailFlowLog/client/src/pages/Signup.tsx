@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Leaf } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { clearLoggedOut } from "@/hooks/useAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -49,9 +50,9 @@ export default function Signup() {
 
       if (response.ok) {
         const data = await response.json();
+        clearLoggedOut();
         queryClient.setQueryData(["/api/auth/user"], data.user);
-        await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        setLocation("/dashboard");
+        setLocation("/");
         return;
       }
 

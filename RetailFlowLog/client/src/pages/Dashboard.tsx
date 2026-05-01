@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
+import { setLoggedOut } from "@/hooks/useAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 import { motion } from "framer-motion";
@@ -93,10 +94,10 @@ export default function Dashboard() {
   const progress = getProgress();
 
   useEffect(() => {
-    if (needsOnboarding && !profileLoading) {
+    if (user && needsOnboarding && !profileLoading) {
       setLocation("/onboarding");
     }
-  }, [needsOnboarding, profileLoading, setLocation]);
+  }, [user, needsOnboarding, profileLoading, setLocation]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -135,10 +136,11 @@ export default function Dashboard() {
                     size="sm"
                     className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-colors"
                     data-testid="button-logout"
-                    onClick={async () => {
-                      await fetch(`${API_BASE}/api/logout`, { credentials: "include" }).catch(() => {});
-                      queryClient.clear();
-                      setLocation("/login");
+                    onClick={() => {
+                      setLoggedOut();
+                      queryClient.setQueryData(["/api/auth/user"], null);
+                      fetch(`${API_BASE}/api/logout`, { credentials: "include" }).catch(() => {});
+                      setLocation("/");
                     }}
                   >
                     <LogOut className="w-4 h-4" />
