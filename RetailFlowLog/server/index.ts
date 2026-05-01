@@ -95,6 +95,18 @@ app.use((req, res, next) => {
   // Health check — Railway pings this to confirm the app is alive
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
+  // OpenAI connectivity test
+  app.get("/api/health/openai", async (_req, res) => {
+    try {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const resp = await openai.models.list();
+      res.json({ status: "ok", models: resp.data.length });
+    } catch (err: any) {
+      res.status(500).json({ status: "error", message: err.message, code: err.code, cause: String(err.cause) });
+    }
+  });
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

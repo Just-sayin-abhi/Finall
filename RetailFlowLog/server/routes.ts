@@ -319,7 +319,7 @@ export async function registerRoutes(
 
       res.json(mealPlan);
     } catch (error: any) {
-      console.error("Error generating meal plan:", error?.status, error?.code, error?.message);
+      console.error("Error generating meal plan:", error?.status, error?.code, error?.message, error?.cause);
 
       // Surface a meaningful error for API key / quota issues
       if (error?.status === 401 || error?.code === "invalid_api_key") {
