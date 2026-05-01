@@ -12,7 +12,7 @@ import OpenAI from "openai";
 
 // Lazily create the client so env vars are read after dotenv has loaded them.
 function getOpenAIClient() {
-  const key = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const key = (process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY)?.trim();
   console.log("[mealPlanBuilder] OPENAI_API_KEY present:", !!key, "prefix:", key?.slice(0, 10));
   return new OpenAI({ apiKey: key });
 }
