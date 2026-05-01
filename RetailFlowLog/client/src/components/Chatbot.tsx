@@ -198,35 +198,9 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
 
       if (!response.ok) throw new Error("Failed to get response");
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader");
-
-      let assistantMessage = "";
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              if (data.content) {
-                assistantMessage += data.content;
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  return [...prev.slice(0, -1), { ...last, content: assistantMessage }];
-                });
-              }
-            } catch (e) {
-              // Ignore non-JSON lines
-            }
-          }
-        }
-      }
+      const data = await response.json();
+      const assistantMessage = data.content || "";
+      setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
     } catch (error) {
       setMessages((prev) => [
         ...prev,

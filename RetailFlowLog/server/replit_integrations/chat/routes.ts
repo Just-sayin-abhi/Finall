@@ -4,7 +4,6 @@ import { chatStorage } from "./storage";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 export function registerChatRoutes(app: Express): void {
@@ -75,13 +74,8 @@ export function registerChatRoutes(app: Express): void {
         content: m.content,
       }));
 
-      // Set up SSE
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-
-      // Stream response from OpenAI
-      const stream = await openai.chat.completions.create({
+      // Non-streaming response for Capacitor WebView compatibility
+      const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
@@ -107,25 +101,15 @@ Strict Guidelines:
           },
           ...chatMessages
         ],
-        stream: true,
-        max_completion_tokens: 8192,
+        max_tokens: 1024,
       });
 
-      let fullResponse = "";
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          fullResponse += content;
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
-        }
-      }
+      const fullResponse = completion.choices[0]?.message?.content || "";
 
       // Save assistant message
       await chatStorage.createMessage(conversationId, "assistant", fullResponse);
 
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
+      res.json({ content: fullResponse, done: true });
     } catch (error) {
       console.error("Error sending message:", error);
       // Check if headers already sent (SSE streaming started)

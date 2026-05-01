@@ -11,13 +11,7 @@ import OpenAI from "openai";
 function getOpenAIClient() {
   const key =
     process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  return new OpenAI({
-    apiKey: key,
-    baseURL:
-      process.env.OPENAI_BASE_URL ||
-      process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
-      undefined,
-  });
+  return new OpenAI({ apiKey: key });
 }
 
 // ---------------------------------------------------------------------------

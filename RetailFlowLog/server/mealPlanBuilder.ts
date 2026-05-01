@@ -14,10 +14,7 @@ import OpenAI from "openai";
 function getOpenAIClient() {
   const key = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   console.log("[mealPlanBuilder] OPENAI_API_KEY present:", !!key, "prefix:", key?.slice(0, 10));
-  return new OpenAI({
-    apiKey: key,
-    baseURL: process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
-  });
+  return new OpenAI({ apiKey: key });
 }
 
 // ---------------------------------------------------------------------------
