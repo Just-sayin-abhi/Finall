@@ -1363,13 +1363,13 @@ export default function FoodList() {
 
             {/* Day selector tabs — hidden while viewing a meal detail */}
             {mealPlan && selectedMeal === null && (
-              <div className="overflow-x-auto scrollbar-hide border-b border-border/30 bg-muted/10">
-                <div className="px-4 pt-3 pb-1 flex gap-1.5 w-max min-w-full">
+              <div className="border-b border-border/30 bg-muted/10">
+                <div className="px-3 pt-3 pb-1 flex gap-1">
                 {mealPlan.days.map((d, idx) => (
                   <button
                     key={d.day}
                     onClick={() => setSelectedDay(idx)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 ${
+                    className={`flex-1 min-w-0 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 text-center ${
                       idx === selectedDay
                         ? "bg-primary text-primary-foreground shadow"
                         : "bg-muted/50 text-muted-foreground hover:bg-muted"

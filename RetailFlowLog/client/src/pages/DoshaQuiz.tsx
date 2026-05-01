@@ -73,6 +73,24 @@ export default function DoshaQuiz() {
   
   const handleSelectAnswer = (value: number) => {
     setSelectedAnswer(value);
+
+    // Auto-advance to the next question after a short delay (except on the last question)
+    if (currentQuestion < doshaQuestions.length - 1) {
+      const newResponse: QuizResponse = {
+        questionId: question.id,
+        dosha: question.dosha,
+        score: value,
+      };
+      setTimeout(() => {
+        setResponses((prev) => {
+          // If we already have a response for this question (user went back), replace it
+          const updated = prev.length > currentQuestion ? prev.slice(0, currentQuestion) : [...prev];
+          return [...updated, newResponse];
+        });
+        setCurrentQuestion((prev) => prev + 1);
+        setSelectedAnswer(null);
+      }, 300);
+    }
   };
   
   const handleNext = () => {
@@ -200,7 +218,7 @@ export default function DoshaQuiz() {
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  className="flex-1 gap-2"
+                  className={isLastQuestion ? "flex-1 gap-2" : "w-full gap-2"}
                   onClick={handleBack}
                   disabled={currentQuestion === 0}
                   data-testid="button-back"
@@ -208,26 +226,23 @@ export default function DoshaQuiz() {
                   <ArrowLeft className="w-4 h-4" />
                   Back
                 </Button>
-                <Button
-                  className="flex-1 gap-2"
-                  onClick={handleNext}
-                  disabled={selectedAnswer === null || mutation.isPending}
-                  data-testid="button-next"
-                >
-                  {mutation.isPending ? (
-                    "Calculating..."
-                  ) : isLastQuestion ? (
-                    <>
-                      Complete
-                      <CheckCircle className="w-4 h-4" />
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </Button>
+                {isLastQuestion && (
+                  <Button
+                    className="flex-1 gap-2"
+                    onClick={handleNext}
+                    disabled={selectedAnswer === null || mutation.isPending}
+                    data-testid="button-next"
+                  >
+                    {mutation.isPending ? (
+                      "Calculating..."
+                    ) : (
+                      <>
+                        Complete
+                        <CheckCircle className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
