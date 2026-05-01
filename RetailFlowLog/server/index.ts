@@ -22,6 +22,28 @@ declare module "http" {
   }
 }
 
+// CORS — allow Capacitor WebView origins (both emulator and real device)
+const ALLOWED_ORIGINS = new Set([
+  "capacitor://localhost",
+  "https://localhost",   // Capacitor Android (androidScheme: https)
+  "http://localhost",
+  "http://localhost:5000",
+  "http://10.0.2.2:5000", // Android emulator → host machine
+  ...(process.env.ALLOWED_ORIGIN ? [process.env.ALLOWED_ORIGIN] : []),
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {

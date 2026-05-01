@@ -32,6 +32,7 @@ export function getSession() {
     checkPeriod: 86400000, // prune expired entries every 24h
   });
   
+  const isProd = process.env.NODE_ENV === "production";
   return session({
     secret: process.env.SESSION_SECRET || "dev_secret_key",
     store: sessionStore,
@@ -39,9 +40,12 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false, // localhost doesn't support secure cookies
+      // In production the server runs on HTTPS (Railway/Render),
+      // and Capacitor WebView uses https://localhost as its origin.
+      // SameSite=None + Secure is required for cross-origin cookie sending.
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: sessionTtl,
-      sameSite: "lax",
     },
   });
 }
