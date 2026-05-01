@@ -188,52 +188,21 @@ export default function Dashboard() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 rounded-2xl px-6 py-5 flex items-center gap-5 shadow-sm hover:shadow-md transition-shadow"
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 bg-background/60 backdrop-blur-sm"
             >
-              <div className="relative w-16 h-16 flex items-center justify-center">
-                {/* Glow behind ring */}
-                <div
-                  className="absolute inset-0 rounded-full blur-md transition-opacity duration-1000"
-                  style={{
-                    background: `conic-gradient(hsl(var(--primary)) ${progress}%, transparent ${progress}%)`,
-                    opacity: 0.2,
-                  }}
-                />
-                <svg className="w-full h-full -rotate-90 relative" viewBox="0 0 56 56">
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    className="text-gray-200 dark:text-gray-700"
-                  />
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    strokeDasharray={150.8}
-                    strokeDashoffset={150.8 - (150.8 * progress) / 100}
-                    strokeLinecap="round"
-                    className="text-primary transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                <div className="absolute font-serif text-sm font-bold text-primary">
-                  {Math.round(progress)}%
+              {progress === 100 ? (
+                <CheckCircle className="w-4 h-4 text-primary" />
+              ) : (
+                <div className="relative w-4 h-4">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="8" className="text-gray-200 dark:text-gray-700" />
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="8" strokeDasharray={150.8} strokeDashoffset={150.8 - (150.8 * progress) / 100} strokeLinecap="round" className="text-primary transition-all duration-1000 ease-out" />
+                  </svg>
                 </div>
-              </div>
-              <div>
-                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Setup Progress
-                </div>
-                <div className="text-sm font-semibold text-foreground mt-1">
-                  {progress === 100 ? "✨ All set up!" : "Keep going"}
-                </div>
-              </div>
+              )}
+              <span className="text-[13px] font-medium text-foreground">
+                {progress === 100 ? "All set up" : `${Math.round(progress)}% Setup`}
+              </span>
             </motion.div>
           )}
         </motion.div>
@@ -245,11 +214,11 @@ export default function Dashboard() {
             className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10"
           >
             {/* BMI */}
-            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 group overflow-hidden relative">
+            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300 group overflow-hidden relative">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/15 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
-                  <Scale className="w-5.5 h-5.5 text-emerald-600 dark:text-emerald-400" />
+                  <Scale className="w-5.5 h-5.5 text-emerald-600 dark:text-emerald-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -258,7 +227,7 @@ export default function Dashboard() {
                   <div className="flex items-baseline gap-2 mt-1">
                     <span className="text-2xl font-bold tabular-nums">{profile.bmi?.toFixed(1)}</span>
                     {bmiCategory && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">
                         {bmiCategory.category}
                       </span>
                     )}
@@ -268,11 +237,11 @@ export default function Dashboard() {
             </Card>
 
             {/* Daily Goal */}
-            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group overflow-hidden relative">
+            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300 group overflow-hidden relative">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 group-hover:bg-amber-500/15 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
-                  <Activity className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400" />
+                  <Activity className="w-5.5 h-5.5 text-amber-600 dark:text-amber-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -287,11 +256,11 @@ export default function Dashboard() {
             </Card>
 
             {/* Metrics */}
-            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 group overflow-hidden relative">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300 group overflow-hidden relative">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-sky-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/15 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
-                  <User className="w-5.5 h-5.5 text-blue-600 dark:text-blue-400" />
+                <div className="w-12 h-12 rounded-xl bg-sky-500/10 group-hover:bg-sky-500/15 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                  <User className="w-5.5 h-5.5 text-sky-600 dark:text-sky-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -310,7 +279,7 @@ export default function Dashboard() {
 
             {/* Dosha */}
             {assessment && PrimaryIcon && (
-              <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 hover:border-primary dark:hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group overflow-hidden relative">
+              <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300 group overflow-hidden relative">
                 <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <CardContent className="p-5 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/15 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
@@ -336,25 +305,21 @@ export default function Dashboard() {
         <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-5 mb-8">
           {/* Dosha Assessment Card */}
           <Card
-            className={`overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 ${
-              needsAssessment
-                ? "shadow-md shadow-primary/5 ring-1 ring-primary/10"
-                : "hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
-            }`}
+            className="overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg"
           >
             {/* Accent gradient at top */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-400/40 via-violet-500 to-violet-400/40 opacity-80" />
 
             {/* Subtle corner decoration */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
             <CardHeader className="relative pt-7 pb-4">
               <div className="flex items-start justify-between mb-3">
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
-                  <Target className="w-6 h-6 text-primary" />
+                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-violet-500/15 to-violet-500/5 flex items-center justify-center shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
+                  <Target className="w-6 h-6 text-violet-600 dark:text-violet-400" />
                 </div>
                 {!needsAssessment && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-[10px] font-bold uppercase tracking-wider">
                     <CheckCircle className="w-3.5 h-3.5" />
                     Completed
                   </div>
@@ -427,24 +392,22 @@ export default function Dashboard() {
 
           {/* Food Recommendations Card */}
           <Card
-            className={`overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 ${
-              !assessment
-                ? "opacity-60"
-                : "hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-lg hover:shadow-amber-500/5"
+            className={`overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg ${
+              !assessment ? "opacity-60" : ""
             }`}
           >
-            {/* Accent gradient at top — saffron for food */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400/40 via-amber-500 to-amber-400/40" />
+            {/* Accent gradient at top */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400/40 via-amber-500 to-amber-400/40 opacity-80" />
 
             {/* Subtle corner decoration */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
             <CardHeader className="relative pt-7 pb-4">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 flex items-center justify-center shadow-sm mb-3 group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
-                <Utensils className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              <div className="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300">
+                <Utensils className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400" />
               </div>
-              <CardTitle className="font-serif text-2xl tracking-tight">Food Wisdom</CardTitle>
-              <CardDescription className="text-sm leading-relaxed mt-1.5">
+              <CardTitle className="font-serif text-2xl tracking-tight pr-14">Food Wisdom</CardTitle>
+              <CardDescription className="text-sm leading-relaxed mt-1.5 pr-14">
                 Discover nutritional choices perfectly aligned with your body.
               </CardDescription>
             </CardHeader>
@@ -458,8 +421,8 @@ export default function Dashboard() {
                       className="w-full gap-3 py-5 text-sm font-semibold bg-white/60 dark:bg-white/5 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 hover:border-primary/30 transition-all duration-300 justify-start group/btn"
                       data-testid="button-balanced-diet"
                     >
-                      <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                        <Scale className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Scale className="w-4.5 h-4.5 text-primary" />
                       </div>
                       <span className="flex-1 text-left">Explore Balanced Foods</span>
                       <ArrowRight className="w-4 h-4 opacity-0 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 -translate-x-2 transition-all duration-300" />
@@ -471,8 +434,8 @@ export default function Dashboard() {
                       className="w-full gap-3 py-5 text-sm font-semibold bg-white/60 dark:bg-white/5 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 hover:border-primary/30 transition-all duration-300 justify-start group/btn"
                       data-testid="button-health-goals"
                     >
-                      <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                        <Target className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Target className="w-4.5 h-4.5 text-primary" />
                       </div>
                       <span className="flex-1 text-left">Set Health Goals</span>
                       <ArrowRight className="w-4 h-4 opacity-0 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 -translate-x-2 transition-all duration-300" />
@@ -494,9 +457,9 @@ export default function Dashboard() {
         {/* Wellness Re-evaluation Card */}
         {assessment && (
           <motion.div variants={itemVariants} className="mb-10">
-            <Card className="overflow-hidden relative group bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 hover:border-rose-400 dark:hover:border-rose-500 hover:shadow-lg hover:shadow-rose-500/5 transition-all duration-300">
-              {/* Accent gradient at top — rose for wellness */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-400/40 via-rose-500 to-rose-400/40" />
+            <Card className="overflow-hidden relative group bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300">
+              {/* Accent gradient at top */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-400/40 via-rose-500 to-rose-400/40 opacity-80" />
 
               {/* Subtle corner decoration */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-rose-500/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -505,13 +468,13 @@ export default function Dashboard() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                   <div className="flex items-center gap-5 flex-1">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500/15 to-rose-500/5 flex items-center justify-center shadow-sm shrink-0 group-hover:scale-105 transition-all duration-300">
-                      <HeartPulse className="w-7 h-7 text-rose-500 dark:text-rose-400" />
+                      <HeartPulse className="w-7 h-7 text-rose-600 dark:text-rose-400" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5 mb-1.5">
                         <CardTitle className="font-serif text-xl sm:text-2xl tracking-tight">Wellness Re-evaluation</CardTitle>
                         {wellnessCheckins.length > 0 && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                             {wellnessCheckins.length} check-{wellnessCheckins.length === 1 ? "in" : "ins"}
                           </span>
                         )}
@@ -553,7 +516,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-2.5 mt-6">
                   <Link href="/wellness-checkin">
                     <Button
-                      className="gap-2 shadow-md shadow-rose-500/15 hover:shadow-lg hover:shadow-rose-500/25 hover:-translate-y-0.5 transition-all duration-300"
+                      className="gap-2 shadow-md shadow-primary/15 hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 transition-all duration-300"
                       style={{ backgroundColor: "hsl(var(--primary))" }}
                       data-testid="button-wellness-checkin"
                     >
@@ -574,7 +537,7 @@ export default function Dashboard() {
                     <Link href="/wellness-progress">
                       <Button
                         variant="outline"
-                        className="gap-2 bg-transparent border-gray-300 dark:border-gray-600 hover:border-rose-400 dark:hover:border-rose-500 hover:bg-rose-500/5 transition-all duration-300"
+                        className="gap-2 bg-transparent border-gray-300 dark:border-gray-600 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
                         data-testid="button-wellness-progress"
                       >
                         View Progress
@@ -596,7 +559,7 @@ export default function Dashboard() {
               <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-border/50 to-transparent" />
             </div>
 
-            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+            <Card className="bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-200 dark:border-gray-700 overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
                   <div className="md:w-1/3 p-8 sm:p-10 flex flex-col items-center justify-center text-center bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
