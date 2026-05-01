@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -32,6 +33,8 @@ import {
   Sparkles,
   RotateCw,
   Calendar,
+  Brain,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -88,6 +91,26 @@ export default function WellnessProgress() {
   const overallPercent = hasComparison && baseline.overallScore > 0
     ? Math.round((overallDelta / baseline.overallScore) * 100)
     : 0;
+
+  // AI Wellness Insights state
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState(false);
+
+  const fetchInsights = async () => {
+    setInsightsLoading(true);
+    setInsightsError(false);
+    try {
+      const resp = await fetch("/api/ai/wellness-insights", { method: "POST" });
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      setAiInsights(data.insights);
+    } catch {
+      setInsightsError(true);
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -228,6 +251,75 @@ export default function WellnessProgress() {
                       </Link>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* AI Wellness Insights */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="mb-8"
+            >
+              <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/[0.03] to-transparent overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Brain className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="font-serif text-lg">AI Wellness Insights</CardTitle>
+                        <CardDescription className="text-xs">Personalised Ayurvedic analysis of your progress</CardDescription>
+                      </div>
+                    </div>
+                    {aiInsights && (
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3" />
+                        AI Generated
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {aiInsights ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                      className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line"
+                    >
+                      {aiInsights}
+                    </motion.div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Get AI-powered insights on your wellness journey — what's improving, what needs attention, and personalised Ayurvedic tips.
+                      </p>
+                      <Button
+                        onClick={fetchInsights}
+                        disabled={insightsLoading}
+                        className="gap-2 shadow-md shadow-primary/20"
+                        data-testid="button-ai-insights"
+                      >
+                        {insightsLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Analyzing…
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            Generate Wellness Insights
+                          </>
+                        )}
+                      </Button>
+                      {insightsError && (
+                        <p className="text-xs text-destructive mt-3">Could not generate insights. Please try again.</p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { doshaDescriptions } from "@/lib/doshaQuestions";
 import type { DoshaAssessment } from "@shared/schema";
+import { motion } from "framer-motion";
 import { 
   Leaf, 
   Wind, 
@@ -14,7 +16,9 @@ import {
   CheckCircle,
   Sparkles,
   Target,
-  Scale
+  Scale,
+  Brain,
+  Loader2
 } from "lucide-react";
 
 const doshaIcons = {
@@ -35,6 +39,26 @@ export default function DoshaResults() {
   const { data: assessment, isLoading } = useQuery<DoshaAssessment>({
     queryKey: ["/api/dosha-assessment"],
   });
+
+  // AI Dosha Explanation state
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(false);
+
+  const fetchExplanation = async () => {
+    setAiLoading(true);
+    setAiError(false);
+    try {
+      const resp = await fetch("/api/ai/dosha-explanation", { method: "POST" });
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      setAiExplanation(data.explanation);
+    } catch {
+      setAiError(true);
+    } finally {
+      setAiLoading(false);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -235,6 +259,74 @@ export default function DoshaResults() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI-Powered Dosha Explanation */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/[0.03] to-transparent overflow-hidden" style={{ animationDelay: "0.15s" }}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Brain className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-serif text-lg">AI Dosha Insight</CardTitle>
+                    <CardDescription className="text-xs">Personalised by your Ayurvedic AI</CardDescription>
+                  </div>
+                </div>
+                {aiExplanation && (
+                  <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3" />
+                    AI Generated
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {aiExplanation ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line"
+                >
+                  {aiExplanation}
+                </motion.div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Get a personalised AI explanation of what your {constitutionName} constitution means for your daily life, strengths, and wellness.
+                  </p>
+                  <Button
+                    onClick={fetchExplanation}
+                    disabled={aiLoading}
+                    className="gap-2 shadow-md shadow-primary/20"
+                    data-testid="button-ai-explanation"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Generate My Dosha Insight
+                      </>
+                    )}
+                  </Button>
+                  {aiError && (
+                    <p className="text-xs text-destructive mt-3">Could not generate insight. Please try again.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
         
         {/* Secondary Dosha Details (if dual) */}
         {secondaryDosha && secondaryInfo && (

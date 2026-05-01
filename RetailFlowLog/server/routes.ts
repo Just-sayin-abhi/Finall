@@ -12,6 +12,7 @@ import {
   parseMealPlanResponse,
   type MealPlanContext,
 } from "./mealPlanBuilder";
+import { generateDoshaExplanation, generateWellnessInsights } from "./aiInsights";
 import { 
   insertUserProfileSchema, 
   insertDoshaAssessmentSchema,
@@ -392,6 +393,89 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to save wellness check-in" });
+    }
+  });
+
+  // ====== AI Insights ======
+
+  // Generate personalised dosha explanation
+  app.post("/api/ai/dosha-explanation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const [assessment, profile] = await Promise.all([
+        storage.getDoshaAssessment(userId),
+        storage.getProfile(userId).catch(() => null),
+      ]);
+
+      if (!assessment) {
+        return res.status(400).json({ message: "No dosha assessment found." });
+      }
+
+      const explanation = await generateDoshaExplanation({
+        primaryDosha: assessment.primaryDosha,
+        secondaryDosha: assessment.secondaryDosha,
+        constitutionType: assessment.constitutionType,
+        vataPercent: assessment.vataPercent,
+        pittaPercent: assessment.pittaPercent,
+        kaphaPercent: assessment.kaphaPercent,
+        age: profile?.age,
+        gender: profile?.gender,
+      });
+
+      res.json({ explanation });
+    } catch (error: any) {
+      console.error("Error generating dosha explanation:", error?.message);
+      if (error?.status === 401 || error?.code === "invalid_api_key") {
+        return res.status(503).json({ message: "AI service unavailable." });
+      }
+      res.status(500).json({ message: "Failed to generate explanation." });
+    }
+  });
+
+  // Generate wellness insights from check-in comparison
+  app.post("/api/ai/wellness-insights", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const [checkins, assessment] = await Promise.all([
+        storage.getWellnessCheckins(userId),
+        storage.getDoshaAssessment(userId),
+      ]);
+
+      if (!assessment) {
+        return res.status(400).json({ message: "No dosha assessment found." });
+      }
+      if (!checkins || checkins.length < 2) {
+        return res.status(400).json({ message: "Need at least 2 check-ins for insights." });
+      }
+
+      const baseline = checkins[0];
+      const latest = checkins[checkins.length - 1];
+      const markers = ["energy", "digestion", "sleep", "mood", "mentalClarity", "skinHealth", "immunity", "calmness"] as const;
+
+      const baselineData: Record<string, number> = {};
+      const latestData: Record<string, number> = {};
+      for (const m of markers) {
+        baselineData[m] = baseline[m];
+        latestData[m] = latest[m];
+      }
+
+      const insights = await generateWellnessInsights({
+        primaryDosha: assessment.primaryDosha,
+        secondaryDosha: assessment.secondaryDosha,
+        constitutionType: assessment.constitutionType,
+        baseline: baselineData,
+        latest: latestData,
+        checkinCount: checkins.length,
+        overallDelta: latest.overallScore - baseline.overallScore,
+      });
+
+      res.json({ insights });
+    } catch (error: any) {
+      console.error("Error generating wellness insights:", error?.message);
+      if (error?.status === 401 || error?.code === "invalid_api_key") {
+        return res.status(503).json({ message: "AI service unavailable." });
+      }
+      res.status(500).json({ message: "Failed to generate insights." });
     }
   });
 
