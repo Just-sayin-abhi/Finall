@@ -92,6 +92,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Health check — Railway pings this to confirm the app is alive
+  app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
