@@ -42,6 +42,7 @@ const STORAGE_KEY = "nivarana-chatbot-size";
 export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const [size, setSize] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_SIZE;
     try {
@@ -54,6 +55,12 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     return DEFAULT_SIZE;
   });
   const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -211,10 +218,19 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     }
   };
 
-  const effectiveSize = isMaximized ? MAXIMIZED_SIZE : size;
+  const mobileHeight = typeof window !== "undefined" ? window.innerHeight - 80 : 600;
+  const effectiveSize = isMobile
+    ? { width: "100%", height: mobileHeight }
+    : isMaximized ? MAXIMIZED_SIZE : size;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <>
+      {/* Mobile overlay backdrop */}
+      {isMobile && isOpen && (
+        <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setIsOpen(false)} />
+      )}
+
+      <div className={isMobile && isOpen ? "fixed inset-x-0 bottom-0 z-50" : "fixed bottom-6 right-6 z-50"}>
       <AnimatePresence mode="wait">
         {!isOpen ? (
           <motion.div
@@ -240,15 +256,24 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
         ) : (
           <motion.div
             key="chat"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            style={{ width: effectiveSize.width, height: effectiveSize.height }}
-            className="flex flex-col rounded-3xl overflow-hidden bg-card/80 backdrop-blur-2xl border border-border/60 shadow-2xl shadow-primary/10 relative"
+            initial={isMobile ? { opacity: 1, y: "100%" } : { opacity: 0, y: 20, scale: 0.9 }}
+            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={isMobile ? { opacity: 1, y: "100%" } : { opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            style={isMobile ? { height: effectiveSize.height } : { width: effectiveSize.width as number, height: effectiveSize.height as number }}
+            className={`flex flex-col overflow-hidden bg-card/95 backdrop-blur-2xl border border-border/60 shadow-2xl shadow-primary/10 relative ${
+              isMobile ? "w-full rounded-t-3xl" : "rounded-3xl"
+            }`}
           >
-            {/* Resize handle (top-left corner) */}
-            {!isMaximized && (
+            {/* Mobile drag pill */}
+            {isMobile && (
+              <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-foreground/20" />
+              </div>
+            )}
+
+            {/* Resize handle (desktop only) */}
+            {!isMobile && !isMaximized && (
               <div
                 onMouseDown={handleResizeStart}
                 onTouchStart={handleResizeStart}
@@ -260,8 +285,8 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
               </div>
             )}
 
-            {/* Top drag indicator strip (visual cue) */}
-            {!isMaximized && (
+            {/* Top drag indicator strip (desktop only) */}
+            {!isMobile && !isMaximized && (
               <div className="absolute top-1 left-1/2 -translate-x-1/2 opacity-30 hover:opacity-60 transition-opacity pointer-events-none">
                 <GripHorizontal className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -285,16 +310,18 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
                 </div>
               </div>
               <div className="flex items-center gap-1 relative z-10 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/15 rounded-xl"
-                  onClick={toggleMaximize}
-                  data-testid="button-toggle-maximize"
-                  title={isMaximized ? "Restore" : "Maximize"}
-                >
-                  {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                </Button>
+                {!isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/15 rounded-xl"
+                    onClick={toggleMaximize}
+                    data-testid="button-toggle-maximize"
+                    title={isMaximized ? "Restore" : "Maximize"}
+                  >
+                    {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -408,13 +435,16 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="text-[10px] text-muted-foreground/70 text-center mt-1.5">
-                Press <kbd className="px-1 py-0.5 rounded bg-muted/60 font-mono">Enter</kbd> to send • <kbd className="px-1 py-0.5 rounded bg-muted/60 font-mono">Shift+Enter</kbd> for new line
-              </div>
+              {!isMobile && (
+                <div className="text-[10px] text-muted-foreground/70 text-center mt-1.5">
+                  Press <kbd className="px-1 py-0.5 rounded bg-muted/60 font-mono">Enter</kbd> to send • <kbd className="px-1 py-0.5 rounded bg-muted/60 font-mono">Shift+Enter</kbd> for new line
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </>
   );
 }
