@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,17 +130,20 @@ export default function Dashboard() {
                       {user.firstName?.[0] || user.email?.[0] || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <a href="/api/logout">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                      data-testid="button-logout"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span className="hidden sm:inline">Logout</span>
-                    </Button>
-                  </a>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    data-testid="button-logout"
+                    onClick={async () => {
+                      await fetch(`${API_BASE}/api/logout`, { credentials: "include" }).catch(() => {});
+                      queryClient.clear();
+                      setLocation("/login");
+                    }}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">Logout</span>
+                  </Button>
                 </div>
               )}
             </div>
