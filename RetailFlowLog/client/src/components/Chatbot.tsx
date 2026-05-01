@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -144,8 +146,9 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     let currentConvId = conversationId;
     if (!currentConvId) {
       try {
-        const convResp = await fetch("/api/conversations", {
+        const convResp = await fetch(`${API_BASE}/api/conversations`, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: `Ayurvedic Dietician Chat - ${dosha}` }),
         });
@@ -173,8 +176,9 @@ export default function Chatbot({ dosha, goal, foods }: ChatbotProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/conversations/${currentConvId}/messages`, {
+      const response = await fetch(`${API_BASE}/api/conversations/${currentConvId}/messages`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: text,

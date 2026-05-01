@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -1006,7 +1008,7 @@ export default function FoodList() {
   useEffect(() => {
     setMealPlan(null);
     const goal = goalParam ?? "balanced";
-    fetch(`/api/mealplan/saved?goal=${goal}`)
+    fetch(`${API_BASE}/api/mealplan/saved?goal=${goal}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data) setMealPlan(data as AIMealPlan); })
       .catch(() => {});
@@ -1017,9 +1019,9 @@ export default function FoodList() {
     queryFn: async () => {
       const url =
         mode === "goal" && goalParam
-          ? `/api/foods/filtered?mode=goal&goal=${goalParam}`
-          : "/api/foods/filtered?mode=balanced";
-      const response = await fetch(url);
+          ? `${API_BASE}/api/foods/filtered?mode=goal&goal=${goalParam}`
+          : `${API_BASE}/api/foods/filtered?mode=balanced`;
+      const response = await fetch(url, { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch foods");
       return response.json();
     },
@@ -1037,8 +1039,9 @@ export default function FoodList() {
   async function generateMealPlan() {
     setGeneratingPlan(true);
     try {
-      const resp = await fetch("/api/mealplan", {
+      const resp = await fetch(`${API_BASE}/api/mealplan`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
@@ -1272,7 +1275,7 @@ export default function FoodList() {
         </Card>
 
         {/* Mobile FAB */}
-        <div className="fixed bottom-6 right-6 md:hidden z-40">
+        <div className="fixed bottom-6 left-6 md:hidden z-40">
           <Button onClick={() => mealPlan ? setShowMealDialog(true) : handleOpenPrefs()} className="rounded-full w-14 h-14 shadow-2xl shadow-primary/40 p-0">
             <Sparkles className="w-6 h-6" />
           </Button>

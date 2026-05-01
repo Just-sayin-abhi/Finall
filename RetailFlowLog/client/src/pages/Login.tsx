@@ -5,6 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Leaf } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -20,14 +23,18 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/login/password", {
+      const response = await fetch(`${API_BASE}/api/login/password`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
 
       if (response.ok) {
-        window.location.href = "/";
+        const data = await response.json();
+        queryClient.setQueryData(["/api/auth/user"], data.user);
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        setLocation("/dashboard");
         return;
       }
 

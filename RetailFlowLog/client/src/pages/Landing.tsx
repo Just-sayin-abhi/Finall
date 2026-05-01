@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -17,6 +18,8 @@ import {
   ChevronDown,
   X
 } from "lucide-react";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -63,14 +66,17 @@ export default function Landing() {
     setLoginLoading(true);
 
     try {
-      const response = await fetch("/api/login/password", {
+      const response = await fetch(`${API_BASE}/api/login/password`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       });
 
       if (response.ok) {
-        window.location.href = "/";
+        const data = await response.json();
+        queryClient.setQueryData(["/api/auth/user"], data.user);
+        window.location.href = "/dashboard";
         return;
       }
 
@@ -91,8 +97,9 @@ export default function Landing() {
     setSignupLoading(true);
 
     try {
-      const response = await fetch("/api/signup", {
+      const response = await fetch(`${API_BASE}/api/signup`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: signupEmail.trim(),
@@ -103,7 +110,9 @@ export default function Landing() {
       });
 
       if (response.ok) {
-        window.location.href = "/";
+        const data = await response.json();
+        queryClient.setQueryData(["/api/auth/user"], data.user);
+        window.location.href = "/dashboard";
         return;
       }
 
