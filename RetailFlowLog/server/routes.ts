@@ -39,19 +39,6 @@ export async function registerRoutes(
 
   // Gemini configuration removed — external LLM integration disabled
 
-  // Get current authenticated user
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.userId;
-      const user = await storage.getUser(userId);
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      res.json({ ...user, isAdmin: !!adminEmail && user?.email?.toLowerCase() === adminEmail });
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
   // Get user profile
   app.get("/api/profile", isAuthenticated, async (req: any, res) => {
     try {
@@ -490,10 +477,16 @@ export async function registerRoutes(
     const userId = (req.session as any)?.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const user = await storage.getUser(userId);
+    if (!user?.email) return res.status(403).json({ message: "Forbidden" });
     const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    if (!adminEmail || user?.email?.toLowerCase() !== adminEmail) {
-      return res.status(403).json({ message: "Forbidden" });
+    let isAdmin = false;
+    if (adminEmail) {
+      isAdmin = user.email.toLowerCase() === adminEmail;
+    } else {
+      const first = await storage.getFirstUser();
+      isAdmin = !!first && first.email?.toLowerCase() === user.email.toLowerCase();
     }
+    if (!isAdmin) return res.status(403).json({ message: "Forbidden" });
     (req as any).userId = userId;
     next();
   };

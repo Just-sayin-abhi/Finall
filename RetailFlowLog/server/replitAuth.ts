@@ -183,12 +183,22 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ message: "User not found" });
       }
 
-      res.json(user);
+      const isAdmin = await checkIsAdmin(user.email ?? "");
+      res.json({ ...user, isAdmin });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
+}
+
+async function checkIsAdmin(email: string): Promise<boolean> {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  // If ADMIN_EMAIL is set, only that email is admin
+  if (adminEmail) return email.toLowerCase() === adminEmail;
+  // Otherwise the first registered user is admin (works locally with no config)
+  const firstUser = await storage.getFirstUser();
+  return !!firstUser && firstUser.email?.toLowerCase() === email.toLowerCase();
 }
 
 // Middleware to check if user is authenticated

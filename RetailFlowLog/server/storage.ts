@@ -42,6 +42,7 @@ export interface IStorage {
   getMealPlan(userId: string, goal: string): Promise<any | undefined>;
   saveMealPlan(userId: string, goal: string, planData: any): Promise<void>;
 
+  getFirstUser(): Promise<User | undefined>;
   getAdminUsers(): Promise<any[]>;
   getAdminStats(): Promise<{ totalUsers: number; quizCompleted: number; wellnessCheckins: number; totalConversations: number }>;
   getAdminConversations(): Promise<any[]>;
@@ -174,6 +175,11 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(mealPlans).values({ userId, goal, planData });
     }
+  }
+
+  async getFirstUser(): Promise<User | undefined> {
+    const result = await db.select().from(users).orderBy(asc(users.createdAt)).limit(1);
+    return result[0];
   }
 
   async getAdminUsers(): Promise<any[]> {
