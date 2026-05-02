@@ -4,6 +4,7 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+android/
 
 # Local env files (do not commit secrets)
 .env.local
