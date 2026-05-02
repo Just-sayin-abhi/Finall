@@ -5,6 +5,8 @@ import {
   userHealthGoals,
   wellnessCheckins,
   mealPlans,
+  conversations,
+  messages,
   type User,
   type UpsertUser,
   type UserProfile,
@@ -17,7 +19,7 @@ import {
   type InsertWellnessCheckin,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, count } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -39,6 +41,10 @@ export interface IStorage {
 
   getMealPlan(userId: string, goal: string): Promise<any | undefined>;
   saveMealPlan(userId: string, goal: string, planData: any): Promise<void>;
+
+  getAdminUsers(): Promise<any[]>;
+  getAdminStats(): Promise<{ totalUsers: number; quizCompleted: number; wellnessCheckins: number; totalConversations: number }>;
+  getAdminConversations(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -168,6 +174,52 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(mealPlans).values({ userId, goal, planData });
     }
+  }
+
+  async getAdminUsers(): Promise<any[]> {
+    const allUsers = await db.select().from(users).orderBy(asc(users.createdAt));
+    return Promise.all(allUsers.map(async (u) => {
+      const doshaRows = await db.select({ primaryDosha: doshaAssessments.primaryDosha })
+        .from(doshaAssessments).where(eq(doshaAssessments.userId, u.id)).orderBy(asc(doshaAssessments.createdAt));
+      const goalRows = await db.select({ goalType: userHealthGoals.goalType })
+        .from(userHealthGoals).where(eq(userHealthGoals.userId, u.id));
+      return {
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        createdAt: u.createdAt,
+        lastActive: u.updatedAt,
+        primaryDosha: doshaRows[doshaRows.length - 1]?.primaryDosha ?? null,
+        healthGoal: goalRows[0]?.goalType ?? null,
+      };
+    }));
+  }
+
+  async getAdminStats(): Promise<{ totalUsers: number; quizCompleted: number; wellnessCheckins: number; totalConversations: number }> {
+    const [[u], [q], [w], [c]] = await Promise.all([
+      db.select({ value: count() }).from(users),
+      db.select({ value: count() }).from(doshaAssessments),
+      db.select({ value: count() }).from(wellnessCheckins),
+      db.select({ value: count() }).from(conversations),
+    ]);
+    return {
+      totalUsers: Number(u?.value ?? 0),
+      quizCompleted: Number(q?.value ?? 0),
+      wellnessCheckins: Number(w?.value ?? 0),
+      totalConversations: Number(c?.value ?? 0),
+    };
+  }
+
+  async getAdminConversations(): Promise<any[]> {
+    const allConvs = await db.select().from(conversations).orderBy(asc(conversations.createdAt));
+    return Promise.all(allConvs.map(async (c) => {
+      const [msgs, userRows] = await Promise.all([
+        db.select().from(messages).where(eq(messages.conversationId, c.id)).orderBy(asc(messages.createdAt)),
+        db.select({ email: users.email, firstName: users.firstName }).from(users).where(eq(users.id, c.userId)),
+      ]);
+      return { ...c, messages: msgs, userEmail: userRows[0]?.email, userName: userRows[0]?.firstName };
+    }));
   }
 }
 

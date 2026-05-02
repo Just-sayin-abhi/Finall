@@ -1,5 +1,8 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express, Request, Response, NextFunction, RequestHandler } from "express";
 import { createServer, type Server } from "http";
+import { readFileSync, writeFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getFilteredFoods } from "./foodFilter";
@@ -41,7 +44,8 @@ export async function registerRoutes(
     try {
       const userId = req.userId;
       const user = await storage.getUser(userId);
-      res.json(user);
+      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+      res.json({ ...user, isAdmin: !!adminEmail && user?.email?.toLowerCase() === adminEmail });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -477,6 +481,66 @@ export async function registerRoutes(
       }
       res.status(500).json({ message: "Failed to generate insights." });
     }
+  });
+
+  // ====== Admin Routes ======
+  const FOOD_FILE = join(dirname(fileURLToPath(import.meta.url)), "data", "food_dataset.json");
+
+  const requireAdmin: RequestHandler = async (req: any, res, next) => {
+    const userId = (req.session as any)?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(userId);
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    if (!adminEmail || user?.email?.toLowerCase() !== adminEmail) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    (req as any).userId = userId;
+    next();
+  };
+
+  app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
+    try { res.json(await storage.getAdminStats()); }
+    catch { res.status(500).json({ message: "Failed" }); }
+  });
+
+  app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+    try { res.json(await storage.getAdminUsers()); }
+    catch { res.status(500).json({ message: "Failed" }); }
+  });
+
+  app.get("/api/admin/conversations", requireAdmin, async (_req, res) => {
+    try { res.json(await storage.getAdminConversations()); }
+    catch { res.status(500).json({ message: "Failed" }); }
+  });
+
+  app.get("/api/admin/foods", requireAdmin, (_req, res) => {
+    try {
+      const data = JSON.parse(readFileSync(FOOD_FILE, "utf-8"));
+      res.json(data.foods);
+    } catch { res.status(500).json({ message: "Failed to read foods" }); }
+  });
+
+  app.post("/api/admin/foods", requireAdmin, (req, res) => {
+    try {
+      const data = JSON.parse(readFileSync(FOOD_FILE, "utf-8"));
+      const food = req.body;
+      if (!food?.name || !food?.category) return res.status(400).json({ message: "Name and category are required" });
+      if (data.foods.find((f: any) => f.name.toLowerCase() === food.name.toLowerCase()))
+        return res.status(409).json({ message: "Food already exists" });
+      data.foods.push(food);
+      writeFileSync(FOOD_FILE, JSON.stringify(data, null, 2));
+      res.json({ success: true });
+    } catch { res.status(500).json({ message: "Failed to add food" }); }
+  });
+
+  app.delete("/api/admin/foods/:name", requireAdmin, (req, res) => {
+    try {
+      const data = JSON.parse(readFileSync(FOOD_FILE, "utf-8"));
+      const name = decodeURIComponent(req.params.name);
+      data.foods = data.foods.filter((f: any) => f.name.toLowerCase() !== name.toLowerCase());
+      writeFileSync(FOOD_FILE, JSON.stringify(data, null, 2));
+      res.json({ success: true });
+    } catch { res.status(500).json({ message: "Failed to delete food" }); }
   });
 
   return httpServer;
