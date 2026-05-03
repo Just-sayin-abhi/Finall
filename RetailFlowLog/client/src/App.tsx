@@ -18,6 +18,8 @@ import FoodList from "@/pages/FoodList";
 import WellnessCheckin from "@/pages/WellnessCheckin";
 import WellnessProgress from "@/pages/WellnessProgress";
 import Admin from "@/pages/Admin";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -30,6 +32,8 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
         </>
       ) : (
         <>

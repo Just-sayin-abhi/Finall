@@ -88,6 +88,15 @@ export default function Login() {
               <Button type="submit" className="w-full" disabled={isLoading || !email.trim() || !password}>
                 {isLoading ? "Logging in..." : "Login"}
               </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setLocation("/forgot-password")}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </form>
           </Card>
         </div>

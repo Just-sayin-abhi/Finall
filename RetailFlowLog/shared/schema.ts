@@ -110,6 +110,16 @@ export const mealPlans = pgTable("meal_plans", {
 
 export type MealPlan = typeof mealPlans.$inferSelect;
 
+// Password reset tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Chat Conversations
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),

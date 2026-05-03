@@ -3,7 +3,10 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import memorystore from "memorystore";
 import crypto from "node:crypto";
+import { Resend } from "resend";
 import { storage } from "./storage";
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 function normalizeEmail(input: unknown): string {
   if (typeof input !== "string") return "";
@@ -167,6 +170,78 @@ export async function setupAuth(app: Express) {
       }
       res.redirect("/");
     });
+  });
+
+  // Forgot password — generate token and send email
+  app.post("/api/forgot-password", async (req, res) => {
+    try {
+      await storage.deleteExpiredTokens();
+      const email = normalizeEmail(req.body?.email);
+      if (!email) return res.status(400).json({ message: "Email is required" });
+
+      // Always respond with success to avoid user enumeration
+      const user = await storage.getUserByEmail(email);
+      if (!user) return res.json({ success: true });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      const appUrl = process.env.APP_URL || "http://localhost:5000";
+      const resetLink = `${appUrl}/reset-password?token=${token}`;
+
+      if (resend) {
+        await resend.emails.send({
+          from: "NIVARANA <onboarding@resend.dev>",
+          to: email,
+          subject: "Reset your NIVARANA password",
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+              <h2 style="color:#16a34a;margin-bottom:8px">Reset your password</h2>
+              <p style="color:#555;margin-bottom:24px">Click the button below to set a new password. This link expires in 1 hour.</p>
+              <a href="${resetLink}" style="display:inline-block;background:#16a34a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Reset Password</a>
+              <p style="color:#aaa;font-size:12px;margin-top:24px">If you didn't request this, ignore this email.</p>
+            </div>
+          `,
+        });
+      } else {
+        // Dev fallback — print to console
+        console.log(`\n[FORGOT PASSWORD] Reset link for ${email}:\n${resetLink}\n`);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Something went wrong" });
+    }
+  });
+
+  // Reset password — validate token and update password
+  app.post("/api/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body ?? {};
+      if (!token || typeof token !== "string") return res.status(400).json({ message: "Invalid token" });
+      if (!password || password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+
+      const record = await storage.getPasswordResetToken(token);
+      if (!record) return res.status(400).json({ message: "Invalid or expired reset link" });
+      if (record.usedAt) return res.status(400).json({ message: "This reset link has already been used" });
+      if (new Date(record.expiresAt) < new Date()) return res.status(400).json({ message: "Reset link has expired" });
+
+      const salt = crypto.randomBytes(16).toString("base64");
+      const hash = crypto.scryptSync(password, Buffer.from(salt, "base64"), 64).toString("base64");
+
+      const user = await storage.getUser(record.userId);
+      if (!user) return res.status(400).json({ message: "User not found" });
+
+      await storage.upsertUser({ ...user, passwordSalt: salt, passwordHash: hash });
+      await storage.markTokenUsed(record.id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Something went wrong" });
+    }
   });
 
   // Get current user

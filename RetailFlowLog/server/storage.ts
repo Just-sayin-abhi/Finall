@@ -7,6 +7,7 @@ import {
   mealPlans,
   conversations,
   messages,
+  passwordResetTokens,
   type User,
   type UpsertUser,
   type UserProfile,
@@ -19,7 +20,7 @@ import {
   type InsertWellnessCheckin,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, and, count } from "drizzle-orm";
+import { eq, asc, and, count, lt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -41,6 +42,11 @@ export interface IStorage {
 
   getMealPlan(userId: string, goal: string): Promise<any | undefined>;
   saveMealPlan(userId: string, goal: string, planData: any): Promise<void>;
+
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<any | undefined>;
+  markTokenUsed(tokenId: number): Promise<void>;
+  deleteExpiredTokens(): Promise<void>;
 
   getFirstUser(): Promise<User | undefined>;
   getAdminUsers(): Promise<any[]>;
@@ -175,6 +181,24 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(mealPlans).values({ userId, goal, planData });
     }
+  }
+
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<any | undefined> {
+    const result = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return result[0];
+  }
+
+  async markTokenUsed(tokenId: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, tokenId));
+  }
+
+  async deleteExpiredTokens(): Promise<void> {
+    await db.delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, new Date()));
   }
 
   async getFirstUser(): Promise<User | undefined> {
