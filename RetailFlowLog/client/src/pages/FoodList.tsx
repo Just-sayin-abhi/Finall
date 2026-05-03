@@ -54,6 +54,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { jsPDF } from "jspdf";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,7 +109,7 @@ interface Preferences {
 // ---------------------------------------------------------------------------
 // PDF Generator
 // ---------------------------------------------------------------------------
-function downloadMealPlanPDF(plan: AIMealPlan) {
+async function downloadMealPlanPDF(plan: AIMealPlan) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -403,7 +405,14 @@ function downloadMealPlanPDF(plan: AIMealPlan) {
     footer(doc.getNumberOfPages());
   }
 
-  doc.save("nivarana-7-day-meal-plan.pdf");
+  if (Capacitor.isNativePlatform()) {
+    const base64 = doc.output("datauristring").split(",")[1];
+    const fileName = "nivarana-7-day-meal-plan.pdf";
+    await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Documents });
+    alert("Meal plan saved to your Documents folder.");
+  } else {
+    doc.save("nivarana-7-day-meal-plan.pdf");
+  }
 }
 
 // ---------------------------------------------------------------------------

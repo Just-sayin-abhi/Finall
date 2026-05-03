@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { App as CapApp } from "@capacitor/app";
 
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -18,6 +19,8 @@ import HealthGoals from "@/pages/HealthGoals";
 import FoodList from "@/pages/FoodList";
 import WellnessCheckin from "@/pages/WellnessCheckin";
 import WellnessProgress from "@/pages/WellnessProgress";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -54,6 +57,8 @@ function Router() {
       <Route path="/signup">
         <GuestGuard><Signup /></GuestGuard>
       </Route>
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard">
         <AuthGuard><Dashboard /></AuthGuard>
       </Route>
@@ -84,6 +89,17 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    const handler = CapApp.addListener("backButton", ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        CapApp.exitApp();
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
