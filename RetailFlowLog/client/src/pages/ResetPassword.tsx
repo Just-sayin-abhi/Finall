@@ -72,7 +72,7 @@ export default function ResetPassword() {
                 <CheckCircle className="w-12 h-12 text-primary mx-auto mb-4" />
                 <h2 className="font-serif text-xl font-semibold mb-2">Password updated</h2>
                 <p className="text-sm text-muted-foreground mb-6">Your password has been changed. You can now log in with your new password.</p>
-                <Button className="w-full" onClick={() => setLocation("/login")}>Go to login</Button>
+                <Button className="w-full" onClick={() => setLocation("/?tab=login")}>Go to login</Button>
               </div>
             ) : (
               <>

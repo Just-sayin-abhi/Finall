@@ -63,7 +63,7 @@ export default function Login() {
       <main className="pt-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md mx-auto">
           <Card className="p-6">
-            <h1 className="font-serif text-2xl font-semibold mb-2">Login</h1>
+<h1 className="font-serif text-2xl font-semibold mb-2">Login</h1>
             <p className="text-sm text-muted-foreground mb-6">Use your email and password.</p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -88,15 +88,15 @@ export default function Login() {
               <Button type="submit" className="w-full" disabled={isLoading || !email.trim() || !password}>
                 {isLoading ? "Logging in..." : "Login"}
               </Button>
-              <div className="text-center">
+              <p style={{ textAlign: "center", marginTop: "12px" }}>
                 <button
                   type="button"
                   onClick={() => setLocation("/forgot-password")}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  style={{ color: "#16a34a", textDecoration: "underline", fontSize: "14px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
                 >
                   Forgot password?
                 </button>
-              </div>
+              </p>
             </form>
           </Card>
         </div>

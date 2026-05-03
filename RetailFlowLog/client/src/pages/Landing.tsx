@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { 
   Leaf, 
   Heart, 
@@ -20,8 +20,17 @@ import {
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "signup">("signup");
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get("tab") === "login") {
+      setAuthTab("login");
+      setShowAuthDialog(true);
+    }
+  }, [search]);
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
@@ -549,6 +558,15 @@ export default function Landing() {
                   className="rounded-lg"
                   data-testid="input-login-password"
                 />
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/forgot-password")}
+                    style={{ color: "#2d6a4f", textDecoration: "underline", fontSize: "13px", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
 
               {loginError && (

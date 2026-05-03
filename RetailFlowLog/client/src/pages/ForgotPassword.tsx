@@ -46,7 +46,7 @@ export default function ForgotPassword() {
               <Leaf className="h-7 w-7 text-primary" />
               <span className="font-serif text-xl font-semibold text-foreground">NIVARANA</span>
             </button>
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/login")} className="gap-1.5">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/?tab=login")} className="gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Back to login
             </Button>
           </div>
@@ -63,7 +63,7 @@ export default function ForgotPassword() {
                 <p className="text-sm text-muted-foreground mb-6">
                   If an account exists for <span className="font-medium text-foreground">{email}</span>, we've sent a password reset link. Check your inbox (and spam folder).
                 </p>
-                <Button variant="outline" className="w-full" onClick={() => setLocation("/login")}>
+                <Button variant="outline" className="w-full" onClick={() => setLocation("/?tab=login")}>
                   Back to login
                 </Button>
               </div>
@@ -93,7 +93,7 @@ export default function ForgotPassword() {
                   <Button type="submit" className="w-full" disabled={!email.trim() || isLoading}>
                     {isLoading ? "Sending…" : "Send reset link"}
                   </Button>
-                  <Button type="button" variant="ghost" className="w-full" onClick={() => setLocation("/login")}>
+                  <Button type="button" variant="ghost" className="w-full" onClick={() => setLocation("/?tab=login")}>
                     Back to login
                   </Button>
                 </form>
