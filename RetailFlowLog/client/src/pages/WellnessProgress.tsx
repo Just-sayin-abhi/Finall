@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -101,8 +102,7 @@ export default function WellnessProgress() {
     setInsightsLoading(true);
     setInsightsError(false);
     try {
-      const resp = await fetch("/api/ai/wellness-insights", { method: "POST" });
-      if (!resp.ok) throw new Error();
+      const resp = await apiRequest("POST", "/api/ai/wellness-insights");
       const data = await resp.json();
       setAiInsights(data.insights);
     } catch {
